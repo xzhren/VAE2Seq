@@ -84,7 +84,7 @@ class VRAE:
         with tf.variable_scope('decoding'):
             init_state = tf.layers.dense(self.z, args.rnn_size, tf.nn.elu)
 
-            lin_proj = tf.layers.Dense(self.params['vocab_size'], _scope='decoder/dense')
+            # lin_proj = tf.layers.Dense(self.params['vocab_size'], _scope='decoder/dense')
             
             helper = tf.contrib.seq2seq.TrainingHelper(
                 inputs = tf.nn.embedding_lookup(tied_embedding, self.dec_inp),
@@ -97,7 +97,11 @@ class VRAE:
             decoder_output, _, _ = tf.contrib.seq2seq.dynamic_decode(
                 decoder = decoder)
         
-        return decoder_output.rnn_output, lin_proj.apply(decoder_output.rnn_output)
+            with tf.variable_scope('decoder'):
+                lin_proj = tf.layers.dense(decoder_output.rnn_output, self.params['vocab_size'], name="dense")
+
+        # return decoder_output.rnn_output, lin_proj.apply(decoder_output.rnn_output)
+        return decoder_output.rnn_output, lin_proj
 
 
     def _decoder_inference(self, z):

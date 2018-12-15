@@ -16,7 +16,9 @@ def main():
     model = VRAE(params)
     saver = tf.train.Saver()
 
-    sess = tf.Session()
+    config = tf.ConfigProto(allow_soft_placement=True)
+    config.gpu_options.allow_growth=True
+    sess = tf.Session(config=config)
     sess.run(tf.global_variables_initializer())
 
     for epoch in range(args.num_epoch):
