@@ -5,6 +5,7 @@ import tensorflow as tf
 import numpy as np
 import sys
 
+from data_reddit import START_TOKEN, END_TOKEN
 
 class VRAE:
     def __init__(self, params):
@@ -38,13 +39,14 @@ class VRAE:
 
     def _build_inputs(self):
         # placeholders
-        self.enc_inp = tf.placeholder(tf.int32, [None, args.max_len])
-        self.dec_inp = tf.placeholder(tf.int32, [None, args.max_len+1])
-        self.dec_out = tf.placeholder(tf.int32, [None, args.max_len+1])
+        self.enc_inp = tf.placeholder(tf.int32, [args.batch_size, args.max_len])
+        self.dec_inp = tf.placeholder(tf.int32, [args.batch_size, args.max_len+1])
+        self.dec_out = tf.placeholder(tf.int32, [args.batch_size, args.max_len+1])
         # global helpers
         self._batch_size = tf.shape(self.enc_inp)[0]
         self.enc_seq_len = tf.count_nonzero(self.enc_inp, 1, dtype=tf.int32)
-        self.dec_seq_len = self.enc_seq_len + 1
+        self.dec_seq_len = tf.count_nonzero(self.dec_out, 1, dtype=tf.int32)
+        print("self.dec_seq_len :", self.dec_seq_len ) # 64
         
     
     def _encode(self):
@@ -94,11 +96,13 @@ class VRAE:
                 helper = helper,
                 initial_state = init_state,
                 concat_z = self.z)
+            # b x t x h
             decoder_output, _, _ = tf.contrib.seq2seq.dynamic_decode(
                 decoder = decoder)
         
             with tf.variable_scope('decoder'):
                 # b x t x h => b x t x v ?
+                print("decoder_output.rnn_output:", decoder_output.rnn_output)
                 lin_proj = tf.layers.dense(decoder_output.rnn_output, self.params['vocab_size'], name="dense")
 
         # return decoder_output.rnn_output, lin_proj.apply(decoder_output.rnn_output)
@@ -118,8 +122,8 @@ class VRAE:
                 cell = self._rnn_cell(reuse=True),
                 embedding = tied_embedding,
                 start_tokens = tf.tile(tf.constant(
-                    [self.params['word2idx']['<start>']], dtype=tf.int32), [self._batch_size]),
-                end_token = self.params['word2idx']['<end>'],
+                    [self.params['word2idx']['<S>']], dtype=tf.int32), [self._batch_size]),
+                end_token = self.params['word2idx']['</S>'],
                 initial_state = tf.contrib.seq2seq.tile_batch(init_state, args.beam_width),
                 beam_width = args.beam_width,
                 output_layer = tf.layers.Dense(self.params['vocab_size'], _reuse=True),
@@ -139,7 +143,8 @@ class VRAE:
 
     def _nll_loss_fn(self):
         mask_fn = lambda l : tf.sequence_mask(l, tf.reduce_max(l), dtype=tf.float32)
-        mask = mask_fn(self.dec_seq_len)
+        # mask_fn = lambda l : tf.sequence_mask(l, args.max_dec_len, dtype=tf.float32)
+        mask = mask_fn(self.dec_seq_len) # b x t
         if (args.num_sampled <= 0) or (args.num_sampled >= self.params['vocab_size']):
             return tf.reduce_sum(tf.contrib.seq2seq.sequence_loss(
                 logits = self.training_logits,
@@ -149,15 +154,41 @@ class VRAE:
                 average_across_batch = True))
         else:
             with tf.variable_scope('decoding/decoder/dense', reuse=True):
+                print("tf.get_variable('kernel'):", tf.get_variable('kernel')) # 200 x 35006
+                print("tf.get_variable('bias'):", tf.get_variable('bias')) # 35006
+                print("mask:", mask)
                 mask = tf.reshape(mask, [-1])
-                return tf.reduce_sum(mask * tf.nn.sampled_softmax_loss(
+                print("mask:", mask) # 3200 - 64 x 151 = 9664
+                print(tf.nn.sampled_softmax_loss(
                     weights = tf.transpose(tf.get_variable('kernel')),
                     biases = tf.get_variable('bias'),
                     labels = tf.reshape(self.dec_out, [-1, 1]),
                     inputs = tf.reshape(self.training_rnn_out, [-1, args.rnn_size]),
                     num_sampled = args.num_sampled,
                     num_classes = self.params['vocab_size'],
-                )) / tf.to_float(self._batch_size)
+                )) # 9664 
+                print("tf.reshape(self.dec_out, [-1, 1]):", tf.reshape(self.dec_out, [-1, 1])) # 9664 x 1
+                print("tf.reshape(self.training_rnn_out, [-1, args.rnn_size]):", tf.reshape(self.training_rnn_out, [-1, args.rnn_size])) # ? x 200
+                print("args.num_sampled:", args.num_sampled)
+                # res = mask * tf.nn.sampled_softmax_loss(
+                #     weights = tf.transpose(tf.get_variable('kernel')),
+                #     biases = tf.get_variable('bias'),
+                #     labels = tf.reshape(self.dec_out, [-1, 1]),
+                #     inputs = tf.reshape(self.training_rnn_out, [-1, args.rnn_size]),
+                #     num_sampled = args.num_sampled,
+                #     num_classes = self.params['vocab_size'],
+                # )
+                res = tf.nn.sampled_softmax_loss(
+                    weights = tf.transpose(tf.get_variable('kernel')),
+                    biases = tf.get_variable('bias'),
+                    labels = tf.reshape(self.dec_out, [-1, 1]),
+                    inputs = tf.reshape(self.training_rnn_out, [-1, args.rnn_size]),
+                    num_sampled = args.num_sampled,
+                    num_classes = self.params['vocab_size'],
+                )
+                res = tf.reduce_sum(res)
+                res = res / tf.to_float(self._batch_size)
+                return res
 
 
     def _kl_w_fn(self, anneal_max, anneal_bias, global_step):

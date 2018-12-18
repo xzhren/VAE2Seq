@@ -6,4 +6,7 @@
 
 ## Steps:
   1. forcked by https://nbviewer.jupyter.org/github/zhedongzheng/finch/blob/master/src_nlp/tensorflow/vae/train.ipynb
-  2. 
+  2. train_reddit
+    - using reddit dataset
+    - vae model
+  3.

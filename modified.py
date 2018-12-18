@@ -4,6 +4,9 @@ from tensorflow.contrib.seq2seq.python.ops.beam_search_decoder import BeamSearch
 
 
 class ModifiedBasicDecoder(BasicDecoder):
+    """
+    https://github.com/tensorflow/tensorflow/blob/r1.4/tensorflow/contrib/seq2seq/python/ops/basic_decoder.py
+    """
     def __init__(self, cell, helper, initial_state, concat_z, output_layer=None):
         super().__init__(cell, helper, initial_state, output_layer)
         self.z = concat_z
