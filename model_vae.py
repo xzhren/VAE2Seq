@@ -78,6 +78,26 @@ class VRAE:
         self.training_rnn_out, self.training_logits = self._decoder_training(z)
         self.predicted_ids = self._decoder_inference(z)
 
+    def _dynamic_time_pad(self, tensor, max_length):
+        shape = tensor.get_shape().as_list()
+        shape_op = tf.shape(tensor)
+
+        pad_size = max_length - shape_op[1]
+
+        if len(shape) == 3:
+            tensor = tf.concat([
+                tensor,
+                tf.zeros([shape_op[0], pad_size, shape[2]], dtype=tensor.dtype)
+            ], 1)
+        elif len(shape) == 2:
+            tensor = tf.concat([
+                tensor,
+                tf.zeros([shape_op[0], pad_size], dtype=tensor.dtype)
+            ], 1)
+        else:
+            raise NotImplemented(f'tensor with {len(shape)} dimentions.')
+
+        return tensor
 
     def _decoder_training(self, z):
         with tf.variable_scope('encoder', reuse=True):
@@ -91,22 +111,27 @@ class VRAE:
             helper = tf.contrib.seq2seq.TrainingHelper(
                 inputs = tf.nn.embedding_lookup(tied_embedding, self.dec_inp),
                 sequence_length = self.dec_seq_len)
+            print("helper:", helper)
             decoder = ModifiedBasicDecoder(
                 cell = self._rnn_cell(),
                 helper = helper,
                 initial_state = init_state,
                 concat_z = self.z)
+            print("decoder:", decoder)
             # b x t x h
             decoder_output, _, _ = tf.contrib.seq2seq.dynamic_decode(
                 decoder = decoder)
+            print("decoder_output:", decoder_output) # 
+            logits = self._dynamic_time_pad(decoder_output.rnn_output, args.max_dec_len)
+            print("logits:", logits) # 
         
             with tf.variable_scope('decoder'):
-                # b x t x h => b x t x v ?
-                print("decoder_output.rnn_output:", decoder_output.rnn_output)
-                lin_proj = tf.layers.dense(decoder_output.rnn_output, self.params['vocab_size'], name="dense")
+                # b x t x h => b x t x v ? # 64,?,200
+                print("decoder_output.rnn_output:", logits)
+                lin_proj = tf.layers.dense(logits, self.params['vocab_size'], name="dense")
 
         # return decoder_output.rnn_output, lin_proj.apply(decoder_output.rnn_output)
-        return decoder_output.rnn_output, lin_proj
+        return logits, lin_proj
 
 
     def _decoder_inference(self, z):
@@ -142,9 +167,9 @@ class VRAE:
 
 
     def _nll_loss_fn(self):
-        mask_fn = lambda l : tf.sequence_mask(l, tf.reduce_max(l), dtype=tf.float32)
-        # mask_fn = lambda l : tf.sequence_mask(l, args.max_dec_len, dtype=tf.float32)
-        mask = mask_fn(self.dec_seq_len) # b x t
+        # mask_fn = lambda l : tf.sequence_mask(l, tf.reduce_max(l), dtype=tf.float32)
+        mask_fn = lambda l : tf.sequence_mask(l, args.max_dec_len, dtype=tf.float32)
+        mask = mask_fn(self.dec_seq_len) # b x t 64 x ?
         if (args.num_sampled <= 0) or (args.num_sampled >= self.params['vocab_size']):
             return tf.reduce_sum(tf.contrib.seq2seq.sequence_loss(
                 logits = self.training_logits,

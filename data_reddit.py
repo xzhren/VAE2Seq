@@ -20,8 +20,8 @@ class BaseDataLoader(object):
                    self.dec_inp[i : i + args.batch_size],
                    self.dec_out[i : i + args.batch_size])
 
-UNK_TOKEN = 0
-PAD_TOKEN = 1
+PAD_TOKEN = 0
+UNK_TOKEN = 1
 START_TOKEN = 2
 END_TOKEN = 3
 UNK_STRING = 'UNK'

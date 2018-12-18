@@ -15,7 +15,8 @@ def main():
     print('Vocab Size:', params['vocab_size'])
     args.max_len = 150
     args.batch_size = 64
-    # args.max_dec_len = 151
+    args.max_dec_len = 151
+    args.display_info_step = 10000
     print(args)
     model = VRAE(params)
     saver = tf.train.Saver()
@@ -54,6 +55,12 @@ def main():
                 print("Step %d | [%d/%d] | [%d/%d]" % (log['step'], epoch+1, args.num_epoch, step, train_data_len//args.batch_size), end='')
                 print(" | nll_loss:%.1f | kl_w:%.3f | kl_loss:%.2f \n" % (log['nll_loss'], log['kl_w'], log['kl_loss']))
         
+            if step % args.display_info_step == 0:
+                model.generate(sess)
+                model.reconstruct(sess, enc_inp[-1], dec_inp[-1])
+                model.customized_reconstruct(sess, 'i love this film and i think it is one of the best films')
+                model.customized_reconstruct(sess, 'this movie is a waste of time and there is no point to watch it')
+
         model.generate(sess)
         model.reconstruct(sess, enc_inp[-1], dec_inp[-1])
         model.customized_reconstruct(sess, 'i love this film and i think it is one of the best films')
