@@ -5,13 +5,13 @@ import tensorflow as tf
 import numpy as np
 import sys
 
-from data_reddit import START_TOKEN, END_TOKEN
+from data_reddit import START_TOKEN, END_TOKEN, UNK_STRING, PAD_STRING
 
 class VRAE:
     def __init__(self, params):
         self.params = params
         self._build_graph()
-
+        self._init_summary()
 
     def _build_graph(self):
         self._build_forward_graph()
@@ -22,7 +22,6 @@ class VRAE:
         self._build_inputs()
         self._decode(self._reparam(*self._encode()))
 
-
     def _build_backward_graph(self):
         self.global_step = tf.Variable(0, trainable=False)
 
@@ -31,17 +30,24 @@ class VRAE:
         self.kl_loss = self._kl_loss_fn(self.z_mean, self.z_logvar)
         
         loss_op = self.nll_loss + self.kl_w * self.kl_loss
+        self.loss = loss_op
         
         clipped_gradients, params = self._gradient_clipping(loss_op)
         self.train_op = tf.train.AdamOptimizer().apply_gradients(
             zip(clipped_gradients, params), global_step=self.global_step)
 
+    def _init_summary(self):
+        tf.summary.scalar("nll_loss", self.nll_loss)
+        tf.summary.scalar("kl_w", self.kl_w)
+        tf.summary.scalar("kl_loss", self.kl_loss)
+        tf.summary.scalar("loss", self.loss)
+        self.merged_summary_op = tf.summary.merge_all()
 
     def _build_inputs(self):
         # placeholders
-        self.enc_inp = tf.placeholder(tf.int32, [args.batch_size, args.max_len])
-        self.dec_inp = tf.placeholder(tf.int32, [args.batch_size, args.max_len+1])
-        self.dec_out = tf.placeholder(tf.int32, [args.batch_size, args.max_len+1])
+        self.enc_inp = tf.placeholder(tf.int32, [None, args.max_len])
+        self.dec_inp = tf.placeholder(tf.int32, [None, args.max_len+1])
+        self.dec_out = tf.placeholder(tf.int32, [None, args.max_len+1])
         # global helpers
         self._batch_size = tf.shape(self.enc_inp)[0]
         self.enc_seq_len = tf.count_nonzero(self.enc_inp, 1, dtype=tf.int32)
@@ -184,36 +190,17 @@ class VRAE:
                 print("mask:", mask)
                 mask = tf.reshape(mask, [-1])
                 print("mask:", mask) # 3200 - 64 x 151 = 9664
-                print(tf.nn.sampled_softmax_loss(
-                    weights = tf.transpose(tf.get_variable('kernel')),
-                    biases = tf.get_variable('bias'),
-                    labels = tf.reshape(self.dec_out, [-1, 1]),
-                    inputs = tf.reshape(self.training_rnn_out, [-1, args.rnn_size]),
-                    num_sampled = args.num_sampled,
-                    num_classes = self.params['vocab_size'],
-                )) # 9664 
                 print("tf.reshape(self.dec_out, [-1, 1]):", tf.reshape(self.dec_out, [-1, 1])) # 9664 x 1
                 print("tf.reshape(self.training_rnn_out, [-1, args.rnn_size]):", tf.reshape(self.training_rnn_out, [-1, args.rnn_size])) # ? x 200
                 print("args.num_sampled:", args.num_sampled)
-                # res = mask * tf.nn.sampled_softmax_loss(
-                #     weights = tf.transpose(tf.get_variable('kernel')),
-                #     biases = tf.get_variable('bias'),
-                #     labels = tf.reshape(self.dec_out, [-1, 1]),
-                #     inputs = tf.reshape(self.training_rnn_out, [-1, args.rnn_size]),
-                #     num_sampled = args.num_sampled,
-                #     num_classes = self.params['vocab_size'],
-                # )
-                res = tf.nn.sampled_softmax_loss(
+                return tf.reduce_sum(mask * tf.nn.sampled_softmax_loss(
                     weights = tf.transpose(tf.get_variable('kernel')),
                     biases = tf.get_variable('bias'),
                     labels = tf.reshape(self.dec_out, [-1, 1]),
                     inputs = tf.reshape(self.training_rnn_out, [-1, args.rnn_size]),
                     num_sampled = args.num_sampled,
                     num_classes = self.params['vocab_size'],
-                )
-                res = tf.reduce_sum(res)
-                res = res / tf.to_float(self._batch_size)
-                return res
+                )) / tf.to_float(self._batch_size)
 
 
     def _kl_w_fn(self, anneal_max, anneal_bias, global_step):
@@ -227,13 +214,11 @@ class VRAE:
 
 
     def train_session(self, sess, enc_inp, dec_inp, dec_out):
-        _, nll_loss, kl_w, kl_loss, step = sess.run(
-            [self.train_op, self.nll_loss, self.kl_w, self.kl_loss, self.global_step],
+        _, summaries, nll_loss, kl_w, kl_loss, step = sess.run(
+            [self.train_op, self.merged_summary_op, self.nll_loss, self.kl_w, self.kl_loss, self.global_step],
                 {self.enc_inp: enc_inp, self.dec_inp: dec_inp, self.dec_out: dec_out})
-        return {'nll_loss': nll_loss,
-                'kl_w': kl_w,
-                'kl_loss': kl_loss,
-                'step': step}
+        return {'summaries': summaries, 'nll_loss': nll_loss,
+                'kl_w': kl_w, 'kl_loss': kl_loss, 'step': step}
 
 
     def reconstruct(self, sess, sentence, sentence_dropped):
@@ -252,7 +237,7 @@ class VRAE:
         sentence = [self.get_new_w(w) for w in sentence.split()][:args.max_len]
         print('I: %s' % ' '.join([idx2word[idx] for idx in sentence]))
         print()
-        sentence = sentence + [self.params['word2idx']['<pad>']] * (args.max_len-len(sentence))
+        sentence = sentence + [self.params['word2idx'][PAD_STRING]] * (args.max_len-len(sentence))
         predicted_ids = sess.run(self.predicted_ids, {self.enc_inp: np.atleast_2d(sentence)})[0]
         print('O: %s' % ' '.join([idx2word[idx] for idx in predicted_ids]))
         print('-'*12)
@@ -260,7 +245,7 @@ class VRAE:
 
     def get_new_w(self, w):
         idx = self.params['word2idx'][w]
-        return idx if idx < self.params['vocab_size'] else self.params['word2idx']['<unk>']
+        return idx if idx < self.params['vocab_size'] else self.params['word2idx'][UNK_STRING]
 
 
     def generate(self, sess):

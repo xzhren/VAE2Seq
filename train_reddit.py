@@ -26,6 +26,8 @@ def main():
     sess = tf.Session(config=config)
     sess.run(tf.global_variables_initializer())
 
+    summary_writer = tf.summary.FileWriter("./saved/")
+    saver.restore(sess, './saved/vrae.ckpt')
 
     train_data_len = 3384185
     for epoch in range(args.num_epoch):
@@ -51,15 +53,24 @@ def main():
             # print(step, "dec_out.shape:", dec_out.shape)
 
             log = model.train_session(sess, enc_inp, dec_inp, dec_out)
+
+            # get the summaries and iteration number so we can write summaries to tensorboard
+            summaries, train_step = log['summaries'], log['step']
+            summary_writer.add_summary(summaries, train_step) # write the summaries
+            if train_step % 100 == 0: # flush the summary writer every so often
+                summary_writer.flush()
+
             if step % args.display_loss_step == 0:
                 print("Step %d | [%d/%d] | [%d/%d]" % (log['step'], epoch+1, args.num_epoch, step, train_data_len//args.batch_size), end='')
-                print(" | nll_loss:%.1f | kl_w:%.3f | kl_loss:%.2f \n" % (log['nll_loss'], log['kl_w'], log['kl_loss']))
+                print(" | nll_loss:%.1f | kl_w:%.3f | kl_loss:%.2f" % (log['nll_loss'], log['kl_w'], log['kl_loss']))
         
             if step % args.display_info_step == 0:
                 model.generate(sess)
                 model.reconstruct(sess, enc_inp[-1], dec_inp[-1])
                 model.customized_reconstruct(sess, 'i love this film and i think it is one of the best films')
                 model.customized_reconstruct(sess, 'this movie is a waste of time and there is no point to watch it')
+                save_path = saver.save(sess, './saved/vrae.ckpt', global_step=train_step)
+                print("Model saved in file: %s" % save_path)
 
         model.generate(sess)
         model.reconstruct(sess, enc_inp[-1], dec_inp[-1])
