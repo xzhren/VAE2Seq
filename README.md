@@ -9,4 +9,4 @@
   2. train_reddit
     - using reddit dataset
     - vae model
-  3.
+  3. forcked measure code from https://github.com/tensorflow/nmt/tree/master/nmt/scripts

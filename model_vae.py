@@ -242,6 +242,12 @@ class VRAE:
         print('O: %s' % ' '.join([idx2word[idx] for idx in predicted_ids]))
         print('-'*12)
 
+    def evaluation(self, sess, enc_inp, outputfile):
+        idx2word = self.params['idx2word']
+        predicted_ids_lt = sess.run(self.predicted_ids, {self.enc_inp:enc_inp})
+        for predicted_ids in predicted_ids_lt:
+            with open(outputfile, "a") as f:
+                f.write('%s\n' % ' '.join([idx2word[idx] for idx in predicted_ids]))
 
     def get_new_w(self, w):
         idx = self.params['word2idx'][w]

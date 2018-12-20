@@ -35,7 +35,8 @@ class REDDIT(BaseDataLoader):
         self.max_input_len = max_input_len
         self.max_output_len = max_output_len
         self._load_vocab(vocab_limit)
-        self.data_loader = self._load_data(batch_size)
+        self.batch_size = batch_size
+        self.data_loader = self._load_data()
         # self.enc_inp, self.dec_inp_full, self.dec_out = self._load_data(batch_size)
         # self.dec_inp = self._word_dropout(self.dec_inp_full)
         
@@ -64,10 +65,11 @@ class REDDIT(BaseDataLoader):
         self.word2idx = word2idx
         self.idx2word = idx2word
     
-    def _load_data(self, batch_size):
+    def _load_data(self, fpath="./corpus/reddit/train.txt"):
+        batch_size = self.batch_size
         x_data, y_data = [], []
         while True:
-            with open("./corpus/reddit/train.txt") as f:  
+            with open(fpath) as f:  
                 for i, line in enumerate(f):
                     if i % 2 ==0:
                         info = line[len("post: "):]
@@ -83,6 +85,10 @@ class REDDIT(BaseDataLoader):
                         if len(x_data) == batch_size:
                             yield self._pad(x_data, y_data)
                             x_data, y_data = [], []
+                assert len(x_data) == len(y_data)
+                if len(x_data) != 0:
+                    yield self._pad(x_data, y_data)
+                    x_data, y_data = [], []
             print("=====! EPOCH !======")
             break
 
@@ -118,6 +124,32 @@ class REDDIT(BaseDataLoader):
         dec_inp = self._word_dropout(dec_inp_full)
         return dec_inp
 
+    def trans_in_ref(self, finpath="./corpus/reddit/test.txt", foutpath="./saved/test.input.txt"):
+        with open(finpath) as f, open(foutpath, "w") as fout:  
+            for i, line in enumerate(f):
+                if i % 2 ==0:
+                    info = line[len("post: "):]
+                    fout.write(info.strip()+"\n")
+
+    def record_result(self, eval_log, finpath, frespaht, foutpath):
+        with open(finpath) as f, open(frespaht) as fres, open(foutpath, "w") as fout:  
+            for i, line in enumerate(f):
+                if i % 2 ==0:
+                    info = line[len("post: "):]
+                    fout.write("sor: "+info.strip()+"\n")
+                else:
+                    info = line[len("resp: "):]
+                    fout.write("ref:"+info.strip()+"\n")
+
+                    res = fres.readline()
+                    ress = ""
+                    for r in res.split(" "):
+                        if r == "</S>": break
+                        ress += r + " "
+                    fout.write("res:"+res.strip()+"\n")
+            fout.write("\n\n\n")
+            for metric, score in eval_log.items():
+                fout.write("  %s: %.1f\n" % (metric, score))
 
 def main():
     def word_dropout_test(d):

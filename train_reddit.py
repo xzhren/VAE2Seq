@@ -36,8 +36,6 @@ def main():
         # dataloader.shuffle()
         # print("Data Shuffled", end='\n\n')
 
-        # for step in tqdm(range(3384185)): 
-        enc_inp, dec_inp_full, dec_out = dataloader.next_batch()
         step = -1
         while True:
             try:
