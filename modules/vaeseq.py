@@ -24,6 +24,9 @@ class VAESEQ:
             self.decoder_model = BaseVAE(params, "decoder")
         with tf.variable_scope('transformer'):
             self.transformer = Transformer(self.encoder_model.z, self.decoder_model.z)
+        with tf.variable_scope('decoderrvae'):
+            self.predicted_ids_op = self.decoder_model._decoder_inference(self.transformer.predition)
+
 
     def train_encoder(self, sess, enc_inp, dec_inp, dec_out):
         log = self.encoder_model.train_session(sess, enc_inp, dec_inp, dec_out)
@@ -56,4 +59,4 @@ class VAESEQ:
         self.decoder_model.customized_reconstruct(sess, 'this movie is a waste of time and there is no point to watch it')
 
     def show_sample(self, sess, x, y):
-        self.transformer.sample_test(sess, x, y, self.encoder_model, self.decoder_model)
+        self.transformer.sample_test(sess, x, y, self.encoder_model, self.decoder_model, self.predicted_ids_op)

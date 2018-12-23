@@ -2,6 +2,7 @@ import tensorflow as tf
 import numpy as np
 
 from config import args
+from data_reddit import PAD_TOKEN
 
 class Transformer:
     def __init__(self, encoder_z, decoder_z):
@@ -69,13 +70,13 @@ class Transformer:
                 feed_dict)
         return {'summaries': summaries, 'merged_loss': loss, 'step': step}
 
-    def sample_test(self, sess, sentence, answer, encoder_model, decoder_model):
+    def sample_test(self, sess, sentence, answer, encoder_model, decoder_model, predicted_ids_op):
         idx2word = encoder_model.params['idx2word']
-        print('I: %s' % ' '.join([idx2word[idx] for idx in sentence]))
-        predicted_ids_op = decoder_model._decoder_inference(self.predition)
+        print('I: %s' % ' '.join([idx2word[idx] for idx in sentence if idx != PAD_TOKEN]))
+        predict_decoder_z = sess.run(self.predition, {encoder_model.enc_inp: np.atleast_2d(sentence)})
         predicted_ids = sess.run(predicted_ids_op, 
-            {encoder_model.enc_inp: np.atleast_2d(sentence)})[0]
+            {decoder_model._batch_size: 1, decoder_model.z: predict_decoder_z, decoder_model.enc_seq_len: [args.max_len]})[0]
         idx2word = decoder_model.params['idx2word']
-        print('O: %s' % ' '.join([idx2word[idx] for idx in predicted_ids]))
-        print('A: %s' % ' '.join([idx2word[idx] for idx in answer]))
+        print('O: %s' % ' '.join([idx2word[idx] for idx in predicted_ids if idx != PAD_TOKEN]))
+        print('A: %s' % ' '.join([idx2word[idx] for idx in answer if idx != PAD_TOKEN]))
         print('-'*12)

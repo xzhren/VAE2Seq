@@ -14,9 +14,9 @@ class BaseVAE:
 
     def _build_inputs(self):
         # placeholders
-        self.enc_inp = tf.placeholder(tf.int32, [None, args.max_len])
-        self.dec_inp = tf.placeholder(tf.int32, [None, args.max_len+1])
-        self.dec_out = tf.placeholder(tf.int32, [None, args.max_len+1])
+        self.enc_inp = tf.placeholder(tf.int32, [None, args.max_len], name="enc_inp")
+        self.dec_inp = tf.placeholder(tf.int32, [None, args.max_len+1], name="dec_inp")
+        self.dec_out = tf.placeholder(tf.int32, [None, args.max_len+1], name="dec_out")
         # global helpers
         self._batch_size = tf.shape(self.enc_inp)[0]
         self.enc_seq_len = tf.count_nonzero(self.enc_inp, 1, dtype=tf.int32)

@@ -14,7 +14,8 @@ def main():
     args.max_len = 150
     args.batch_size = 64
     args.max_dec_len = 151
-    args.display_info_step = 10000
+    args.display_info_step = 1000
+    args.display_info_step = 100
     print(args)
 
     ## DataLoader
@@ -35,8 +36,9 @@ def main():
     sess = tf.Session(config=config)
     sess.run(tf.global_variables_initializer())
 
-    summary_writer = tf.summary.FileWriter("./saved/vaeseq/")
-    # saver.restore(sess, './saved/vrae.ckpt')
+    summary_writer = tf.summary.FileWriter("./saved/vaeseq/", sess.graph)
+    # tf.train.write_graph(sess.graph, './saved/vaeseq/', 'train.pbtxt')
+    # saver.restore(sess, './saved/vaeseq/vrae.ckpt')
 
     # Train Mode
     train_data_len = 3384185
@@ -71,15 +73,15 @@ def main():
                 # print(" | nll_loss:%.1f | kl_w:%.3f | kl_loss:%.2f" % (log['nll_loss'], log['kl_w'], log['kl_loss']))
         
             if step % args.display_info_step == 0 and step != 0:
-                # model.show_encoder(sess, x_enc_inp[-1], x_dec_inp[-1])
-                # model.show_decoder(sess, y_enc_inp[-1], y_dec_inp[-1])
-                model.show_sample(sess, x_enc_inp[-1], y_dec_inp[-1])
                 save_path = saver.save(sess, './saved/vaeseq/vrae.ckpt', global_step=train_step)
                 print("Model saved in file: %s" % save_path)
+                # model.show_encoder(sess, x_enc_inp[-1], x_dec_inp[-1])
+                # model.show_decoder(sess, y_enc_inp[-1], y_dec_inp[-1])
+                model.show_sample(sess, x_enc_inp[-1], y_dec_out[-1])
                 
         model.show_encoder(sess, x_enc_inp[-1], x_dec_inp[-1])
         model.show_decoder(sess, y_enc_inp[-1], y_dec_inp[-1])
-        model.show_sample(sess, x_enc_inp[-1], y_dec_inp[-1])
+        model.show_sample(sess, x_enc_inp[-1], y_dec_out[-1])
         save_path = saver.save(sess, './saved/vaeseq/vrae.ckpt', global_step=train_step)
         print("Model saved in file: %s" % save_path)
 
