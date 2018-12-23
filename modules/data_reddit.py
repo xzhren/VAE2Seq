@@ -34,14 +34,8 @@ class REDDIT(BaseDataLoader):
         super().__init__()
         self.max_input_len = max_input_len
         self.max_output_len = max_output_len
-        self._load_vocab(vocab_limit)
         self.batch_size = batch_size
-        self.data_loader = self._load_data()
-        # self.enc_inp, self.dec_inp_full, self.dec_out = self._load_data(batch_size)
-        # self.dec_inp = self._word_dropout(self.dec_inp_full)
-        
-    def next_batch(self):
-        return next(self.data_loader)
+        self._load_vocab(vocab_limit)
 
     def _load_vocab(self, limit=0):
         word2idx = {"UNK":UNK_TOKEN, "PAD":PAD_TOKEN, "<S>":START_TOKEN, "</S>":END_TOKEN}
@@ -65,7 +59,7 @@ class REDDIT(BaseDataLoader):
         self.word2idx = word2idx
         self.idx2word = idx2word
     
-    def _load_data(self, fpath="./corpus/reddit/train.txt"):
+    def load_data(self, fpath="./corpus/reddit/train.txt"):
         batch_size = self.batch_size
         x_data, y_data = [], []
         while True:
@@ -92,24 +86,29 @@ class REDDIT(BaseDataLoader):
             print("=====! EPOCH !======")
             break
 
-    def _pad(self, X, Y):
+    def _pad_one(self, data, maxlen):
         enc_inp = []
         dec_inp = []
         dec_out = []
-        for x,y in zip(X, Y):
-            if len(x) < self.max_input_len:
-                enc_inp.append(x + [PAD_TOKEN]*(self.max_input_len-len(x)))
+        for x in data:
+            if len(x) < maxlen:
+                enc_inp.append(x + [PAD_TOKEN]*(maxlen-len(x)))
             else:
-                enc_inp.append(x[:self.max_input_len])
+                enc_inp.append(x[:maxlen])
 
-            if len(y) < self.max_output_len:
-                dec_inp.append([START_TOKEN] + y + [PAD_TOKEN]*(self.max_output_len-len(y)))
-                dec_out.append(y + [END_TOKEN] + [PAD_TOKEN]*(self.max_output_len-len(y)))
+            y = x
+            if len(y) < maxlen:
+                dec_inp.append([START_TOKEN] + y + [PAD_TOKEN]*(maxlen-len(y)))
+                dec_out.append(y + [END_TOKEN] + [PAD_TOKEN]*(maxlen-len(y)))
             else:
-                truncated = y[:self.max_output_len]
-                dec_inp.append([START_TOKEN] + truncated)
-                dec_out.append(truncated + [END_TOKEN])
+                dec_inp.append([START_TOKEN] + y[:maxlen])
+                dec_out.append(y[:maxlen] + [END_TOKEN])
         return np.array(enc_inp), np.array(dec_inp), np.array(dec_out)
+
+    def _pad(self, X, Y):
+        x_enc_inp, x_dec_inp_full, x_dec_out = self._pad_one(X, self.max_input_len)
+        y_enc_inp, y_dec_inp_full, y_dec_out = self._pad_one(Y, self.max_output_len)
+        return x_enc_inp, x_dec_inp_full, x_dec_out, y_enc_inp, y_dec_inp_full, y_dec_out
 
     def _word_dropout(self, x):
         is_dropped = np.random.binomial(1, args.word_dropout_rate, x.shape)
@@ -151,26 +150,3 @@ class REDDIT(BaseDataLoader):
             fout.write("\n\n\n")
             for metric, score in eval_log.items():
                 fout.write("  %s: %.1f\n" % (metric, score))
-
-def main():
-    def word_dropout_test(d):
-        print(' '.join(d.idx2word[idx] for idx in d.dec_inp_full[20]))
-        print(' '.join(d.idx2word[idx] for idx in d.dec_inp[20]))
-
-    def update_word_dropout_test(d):
-        d.update_word_dropout()
-        print(' '.join(d.idx2word[idx] for idx in d.dec_inp_full[20]))
-        print(' '.join(d.idx2word[idx] for idx in d.dec_inp[20]))
-
-    def next_batch_test(d):
-        enc_inp, dec_inp, dec_out = next(d.next_batch())
-        print(enc_inp.shape, dec_inp.shape, dec_out.shape)
-
-    imdb = REDDIT()
-    word_dropout_test(imdb)
-    update_word_dropout_test(imdb)
-    next_batch_test(imdb)
-
-
-if __name__ == '__main__':
-    main()

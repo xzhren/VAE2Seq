@@ -10,3 +10,4 @@
     - using reddit dataset
     - vae model
   3. forcked measure code from https://github.com/tensorflow/nmt/tree/master/nmt/scripts
+  4. Seq2VAE
