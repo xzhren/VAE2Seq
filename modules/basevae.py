@@ -195,10 +195,10 @@ class BaseVAE:
     """
 
     def train_session(self, sess, enc_inp, dec_inp, dec_out):
-        _, summaries, nll_loss, kl_w, kl_loss, step = sess.run(
-            [self.train_op, self.merged_summary_op, self.nll_loss, self.kl_w, self.kl_loss, self.global_step],
+        _, summaries, loss, nll_loss, kl_w, kl_loss, step = sess.run(
+            [self.train_op, self.merged_summary_op, self.loss, self.nll_loss, self.kl_w, self.kl_loss, self.global_step],
                 {self.enc_inp: enc_inp, self.dec_inp: dec_inp, self.dec_out: dec_out})
-        return {'summaries': summaries, 'nll_loss': nll_loss,
+        return {'summaries': summaries, 'loss': loss, 'nll_loss': nll_loss,
                 'kl_w': kl_w, 'kl_loss': kl_loss, 'step': step}
 
 

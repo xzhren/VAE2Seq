@@ -1,6 +1,9 @@
 from __future__ import print_function
 from modules.data_reddit import REDDIT
 from modules.vaeseq import VAESEQ
+from utils.train_utils import show_loss
+from utils.train_utils import summary_flush
+
 from config import args
 import json
 import tensorflow as tf
@@ -15,9 +18,9 @@ def main():
     args.batch_size = 64
     args.max_dec_len = 151
     args.display_info_step = 1000
-    args.display_info_step = 100
     print(args)
     exp_path = "./saved/vaeseq/"
+    model_name = "vrae.ckpt"
 
     ## DataLoader
     dataloader = REDDIT(batch_size=64, vocab_limit=35000, max_input_len=150, max_output_len=150)
@@ -48,6 +51,7 @@ def main():
     train_data_len = 3384185
     train_data_path = "./corpus/reddit/train.txt"
     batcher = dataloader.load_data(fpath=train_data_path)
+    x_log, y_log, t_log, log = None, None, None, None
     for epoch in range(args.num_epoch):
         for step in tqdm(range((train_data_len-1)//args.batch_size+1)):
             # get batch data
@@ -59,25 +63,20 @@ def main():
                 print("there are no more examples")
                 break
                 
-            # x_log = model.train_encoder(sess, x_enc_inp, x_dec_inp, x_dec_out)
             # y_log = model.train_encoder(sess, y_enc_inp, y_dec_inp, y_dec_out)
+            # x_log = model.train_encoder(sess, x_enc_inp, x_dec_inp, x_dec_out)
             # t_log = model.train_transformer(sess, x_enc_inp, x_dec_inp, x_dec_out, y_enc_inp, y_dec_inp, y_dec_out)
             log = model.merged_train(sess, x_enc_inp, x_dec_inp, x_dec_out, y_enc_inp, y_dec_inp, y_dec_out)
 
             # get the summaries and iteration number so we can write summaries to tensorboard
-            summaries, train_step = log['summaries'], log['step']
-            summary_writer.add_summary(summaries, train_step) # write the summaries
-            
-            if train_step % 100 == 0: # flush the summary writer every so often
-                summary_writer.flush()
+            train_step = summary_flush(x_log, y_log, t_log, log, summary_writer)
 
             if step % args.display_loss_step == 0:
-                print("Step %d | [%d/%d] | [%d/%d]" % (log['step'], epoch+1, args.num_epoch, step, train_data_len//args.batch_size), end='')
-                print(" | merged_loss:%.1f | trans_w:%.3f | encoder_loss:%.1f | decoder_loss:%.1f" % (log['merged_loss'], log['trans_loss'], log['encoder_loss'], log['decoder_loss']))
-                # print(" | nll_loss:%.1f | kl_w:%.3f | kl_loss:%.2f" % (log['nll_loss'], log['kl_w'], log['kl_loss']))
+                print("Step %d | [%d/%d] | [%d/%d]" % (train_step, epoch+1, args.num_epoch, step, train_data_len//args.batch_size), end='')
+                show_loss(x_log, y_log, t_log, log)
         
             if step % args.display_info_step == 0 and step != 0:
-                save_path = saver.save(sess, exp_path+'vrae.ckpt', global_step=train_step)
+                save_path = saver.save(sess, exp_path+model_name, global_step=train_step)
                 print("Model saved in file: %s" % save_path)
                 # model.show_encoder(sess, x_enc_inp[-1], x_dec_inp[-1])
                 # model.show_decoder(sess, y_enc_inp[-1], y_dec_inp[-1])
@@ -86,7 +85,7 @@ def main():
         model.show_encoder(sess, x_enc_inp[-1], x_dec_inp[-1])
         model.show_decoder(sess, y_enc_inp[-1], y_dec_inp[-1])
         model.show_sample(sess, x_enc_inp[-1], y_dec_out[-1])
-        save_path = saver.save(sess, exp_path+'vrae.ckpt', global_step=train_step)
+        save_path = saver.save(sess, exp_path+model_name, global_step=train_step)
         print("Model saved in file: %s" % save_path)
 
 

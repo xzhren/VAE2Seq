@@ -9,22 +9,26 @@ class Transformer:
         self.input = encoder.z
         self.output = decoder.z
 
-        self._build_graph()
-        self._init_summary(encoder.loss, decoder.loss)
+        self._build_graph(encoder.loss, decoder.loss)
+        self._init_summary()
 
-    def _build_graph(self):
+    def _build_graph(self, encoder_loss, decoder_loss):
         with tf.variable_scope('mlp'):
             self.predition = tf.layers.dense(self.input, args.latent_size)
         with tf.variable_scope('loss'):
             self.loss = tf.losses.mean_squared_error(self.predition, self.output)
+            self.merged_loss = self.loss + encoder_loss + decoder_loss
         
         self.global_step = tf.Variable(0, trainable=False)
         clipped_gradients, params = self._gradient_clipping(self.loss)
         self.train_op = tf.train.AdamOptimizer().apply_gradients(
             zip(clipped_gradients, params), global_step=self.global_step)
+
+        clipped_gradients, params = self._gradient_clipping(self.merged_loss)
+        self.merged_train_op = tf.train.AdamOptimizer().apply_gradients(
+            zip(clipped_gradients, params), global_step=self.global_step)
     
-    def _init_summary(self, encoder_loss, decoder_loss):
-        self.merged_loss = self.loss + encoder_loss + decoder_loss
+    def _init_summary(self):
         tf.summary.scalar("trans_loss", self.loss)
         tf.summary.scalar("merged_loss", self.merged_loss)
         self.merged_summary_op = tf.summary.merge_all()
@@ -70,7 +74,7 @@ class Transformer:
             decoder_model.dec_out: y_dec_out
         }
         _, summaries, loss, trans_loss, encoder_loss, decoder_loss, step = sess.run(
-            [self.train_op, self.merged_summary_op, self.merged_loss, self.loss, encoder_model.loss, decoder_model.loss, self.global_step],
+            [self.merged_train_op, self.merged_summary_op, self.merged_loss, self.loss, encoder_model.loss, decoder_model.loss, self.global_step],
                 feed_dict)
         return {'summaries': summaries, 'merged_loss': loss, 'trans_loss': trans_loss, 
             'encoder_loss': encoder_loss, 'decoder_loss': decoder_loss, 'step': step}

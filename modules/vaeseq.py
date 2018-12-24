@@ -27,7 +27,6 @@ class VAESEQ:
         with tf.variable_scope('decoderrvae'):
             self.predicted_ids_op = self.decoder_model._decoder_inference(self.transformer.predition)
 
-
     def train_encoder(self, sess, enc_inp, dec_inp, dec_out):
         log = self.encoder_model.train_session(sess, enc_inp, dec_inp, dec_out)
         return log
