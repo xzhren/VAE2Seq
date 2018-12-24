@@ -23,7 +23,7 @@ class VAESEQ:
         with tf.variable_scope('decoderrvae'):
             self.decoder_model = BaseVAE(params, "decoder")
         with tf.variable_scope('transformer'):
-            self.transformer = Transformer(self.encoder_model.z, self.decoder_model.z)
+            self.transformer = Transformer(self.encoder_model, self.decoder_model)
         with tf.variable_scope('decoderrvae'):
             self.predicted_ids_op = self.decoder_model._decoder_inference(self.transformer.predition)
 

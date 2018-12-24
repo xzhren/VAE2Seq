@@ -17,6 +17,7 @@ def main():
     args.display_info_step = 1000
     args.display_info_step = 100
     print(args)
+    exp_path = "./saved/vaeseq/"
 
     ## DataLoader
     dataloader = REDDIT(batch_size=64, vocab_limit=35000, max_input_len=150, max_output_len=150)
@@ -36,9 +37,12 @@ def main():
     sess = tf.Session(config=config)
     sess.run(tf.global_variables_initializer())
 
-    summary_writer = tf.summary.FileWriter("./saved/vaeseq/", sess.graph)
+    summary_writer = tf.summary.FileWriter(exp_path, sess.graph)
     # tf.train.write_graph(sess.graph, './saved/vaeseq/', 'train.pbtxt')
-    # saver.restore(sess, './saved/vaeseq/vrae.ckpt')
+    restore_path = tf.train.latest_checkpoint(exp_path)
+    if restore_path:
+        saver.restore(sess, restore_path)
+        print("Model restore from file: %s" % restore_path)
 
     # Train Mode
     train_data_len = 3384185
@@ -69,11 +73,11 @@ def main():
 
             if step % args.display_loss_step == 0:
                 print("Step %d | [%d/%d] | [%d/%d]" % (log['step'], epoch+1, args.num_epoch, step, train_data_len//args.batch_size), end='')
-                print(" | nll_loss:%.1f | kl_w:%.3f | kl_loss:%.2f" % (log['merged_loss'], log['merged_loss'], log['merged_loss']))
+                print(" | merged_loss:%.1f | trans_w:%.3f | encoder_loss:%.1f | decoder_loss:%.1f" % (log['merged_loss'], log['trans_loss'], log['encoder_loss'], log['decoder_loss']))
                 # print(" | nll_loss:%.1f | kl_w:%.3f | kl_loss:%.2f" % (log['nll_loss'], log['kl_w'], log['kl_loss']))
         
             if step % args.display_info_step == 0 and step != 0:
-                save_path = saver.save(sess, './saved/vaeseq/vrae.ckpt', global_step=train_step)
+                save_path = saver.save(sess, exp_path+'vrae.ckpt', global_step=train_step)
                 print("Model saved in file: %s" % save_path)
                 # model.show_encoder(sess, x_enc_inp[-1], x_dec_inp[-1])
                 # model.show_decoder(sess, y_enc_inp[-1], y_dec_inp[-1])
@@ -82,7 +86,7 @@ def main():
         model.show_encoder(sess, x_enc_inp[-1], x_dec_inp[-1])
         model.show_decoder(sess, y_enc_inp[-1], y_dec_inp[-1])
         model.show_sample(sess, x_enc_inp[-1], y_dec_out[-1])
-        save_path = saver.save(sess, './saved/vaeseq/vrae.ckpt', global_step=train_step)
+        save_path = saver.save(sess, exp_path+'vrae.ckpt', global_step=train_step)
         print("Model saved in file: %s" % save_path)
 
 
