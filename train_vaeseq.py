@@ -1,13 +1,14 @@
 from __future__ import print_function
-from modules.data_reddit import REDDIT
-from modules.vaeseq import VAESEQ
-from utils.train_utils import show_loss
-from utils.train_utils import summary_flush
 
-from config import args
 import json
 import tensorflow as tf
 from tqdm import tqdm
+
+from data.data_reddit import REDDIT
+from modules.vaeseq import VAESEQ
+from utils.train_utils import show_loss
+from utils.train_utils import summary_flush
+from config import args
 
 import os
 os.environ["CUDA_VISIBLE_DEVICES"] = "0"

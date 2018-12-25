@@ -2,7 +2,7 @@ import tensorflow as tf
 import numpy as np
 
 from config import args
-from data_reddit import PAD_TOKEN
+from data.data_reddit import PAD_TOKEN
 
 class Transformer:
     def __init__(self, encoder, decoder):

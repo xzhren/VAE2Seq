@@ -2,8 +2,8 @@ import tensorflow as tf
 import numpy as np
 
 from config import args
-from modified import ModifiedBasicDecoder, ModifiedBeamSearchDecoder
-from data_reddit import START_TOKEN, END_TOKEN, UNK_STRING, PAD_STRING
+from modules.modified import ModifiedBasicDecoder, ModifiedBeamSearchDecoder
+from data.data_reddit import START_TOKEN, END_TOKEN, UNK_STRING, PAD_STRING
 
 class BaseVAE:
     def __init__(self, params, prefix):

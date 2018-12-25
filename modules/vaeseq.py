@@ -1,13 +1,12 @@
-from config import args
-from modified import ModifiedBasicDecoder, ModifiedBeamSearchDecoder
-from modules.basevae import BaseVAE
-from modules.transformer import Transformer
-
 import tensorflow as tf
 import numpy as np
 import sys
 
-from data_reddit import START_TOKEN, END_TOKEN, UNK_STRING, PAD_STRING
+from config import args
+from modules.modified import ModifiedBasicDecoder, ModifiedBeamSearchDecoder
+from modules.basevae import BaseVAE
+from modules.transformer import Transformer
+from data.data_reddit import START_TOKEN, END_TOKEN, UNK_STRING, PAD_STRING
 
 class VAESEQ:
     def __init__(self, params):

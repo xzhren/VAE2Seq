@@ -1,10 +1,9 @@
-from config import args
-
 import sklearn
 import numpy as np
 import tensorflow as tf
-
 import random
+
+from config import args
 
 class BaseDataLoader(object):
     def __init__(self):
