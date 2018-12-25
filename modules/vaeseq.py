@@ -57,5 +57,7 @@ class VAESEQ:
         self.decoder_model.customized_reconstruct(sess, 'i love this film and i think it is one of the best films')
         self.decoder_model.customized_reconstruct(sess, 'this movie is a waste of time and there is no point to watch it')
 
-    def show_sample(self, sess, x, y):
-        self.transformer.sample_test(sess, x, y, self.encoder_model, self.decoder_model, self.predicted_ids_op)
+    def show_sample(self, sess, x, y, LOGGER):
+        infos = self.transformer.sample_test(sess, x, y, self.encoder_model, self.decoder_model, self.predicted_ids_op)
+        LOGGER.write(infos)
+        print(infos.strip())

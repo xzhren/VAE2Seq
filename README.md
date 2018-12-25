@@ -11,3 +11,7 @@
     - vae model
   3. forcked measure code from https://github.com/tensorflow/nmt/tree/master/nmt/scripts
   4. Seq2VAE
+
+## TODO
+  - [x] keep on training
+  - [x] record log in file

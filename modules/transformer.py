@@ -17,7 +17,7 @@ class Transformer:
             self.predition = tf.layers.dense(self.input, args.latent_size)
         with tf.variable_scope('loss'):
             self.loss = tf.losses.mean_squared_error(self.predition, self.output)
-            self.merged_loss = self.loss + encoder_loss + decoder_loss
+            self.merged_loss = self.loss*1000 + encoder_loss + decoder_loss
         
         self.global_step = tf.Variable(0, trainable=False)
         clipped_gradients, params = self._gradient_clipping(self.loss)
@@ -81,11 +81,12 @@ class Transformer:
 
     def sample_test(self, sess, sentence, answer, encoder_model, decoder_model, predicted_ids_op):
         idx2word = encoder_model.params['idx2word']
-        print('I: %s' % ' '.join([idx2word[idx] for idx in sentence if idx != PAD_TOKEN]))
+        infos = 'I: %s\n' % ' '.join([idx2word[idx] for idx in sentence if idx != PAD_TOKEN])
         predict_decoder_z = sess.run(self.predition, {encoder_model.enc_inp: np.atleast_2d(sentence)})
         predicted_ids = sess.run(predicted_ids_op, 
             {decoder_model._batch_size: 1, decoder_model.z: predict_decoder_z, decoder_model.enc_seq_len: [args.max_len]})[0]
         idx2word = decoder_model.params['idx2word']
-        print('O: %s' % ' '.join([idx2word[idx] for idx in predicted_ids if idx != PAD_TOKEN]))
-        print('A: %s' % ' '.join([idx2word[idx] for idx in answer if idx != PAD_TOKEN]))
-        print('-'*12)
+        infos += 'O: %s\n' % ' '.join([idx2word[idx] for idx in predicted_ids if idx != PAD_TOKEN])
+        infos += 'A: %s\n' % ' '.join([idx2word[idx] for idx in answer if idx != PAD_TOKEN])
+        infos += '-'*12 + '\n'
+        return infos

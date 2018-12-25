@@ -21,6 +21,9 @@ def main():
     print(args)
     exp_path = "./saved/vaeseq/"
     model_name = "vrae.ckpt"
+    train_data_len = 3384185
+    train_data_path = "./corpus/reddit/train.txt"
+    EPOCH_STEPS = (train_data_len-1)//args.batch_size+1
 
     ## DataLoader
     dataloader = REDDIT(batch_size=64, vocab_limit=35000, max_input_len=150, max_output_len=150)
@@ -32,6 +35,8 @@ def main():
 
     ## ModelInit    
     model = VAESEQ(params)
+    log_path = "./saved/vaeseq/log.txt"
+    LOGGER = open(log_path, "a")
 
     ## Session
     saver = tf.train.Saver()
@@ -42,18 +47,23 @@ def main():
 
     summary_writer = tf.summary.FileWriter(exp_path, sess.graph)
     # tf.train.write_graph(sess.graph, './saved/vaeseq/', 'train.pbtxt')
+    keep_on_train_flag = False
     restore_path = tf.train.latest_checkpoint(exp_path)
     if restore_path:
+        keep_on_train_flag = True
         saver.restore(sess, restore_path)
-        print("Model restore from file: %s" % restore_path)
+        last_train_step = int(restore_path.split("-")[-1]) % EPOCH_STEPS
+        print("Model restore from file: %s, last train step: %d" % (restore_path, last_train_step))
+        LOGGER.write("Model restore from file: %s, last train step: %d\n" % (restore_path, last_train_step))
 
     # Train Mode
-    train_data_len = 3384185
-    train_data_path = "./corpus/reddit/train.txt"
-    batcher = dataloader.load_data(fpath=train_data_path)
     x_log, y_log, t_log, log = None, None, None, None
     for epoch in range(args.num_epoch):
-        for step in tqdm(range((train_data_len-1)//args.batch_size+1)):
+        batcher = dataloader.load_data(fpath=train_data_path)
+        for step in tqdm(range(EPOCH_STEPS)):
+            if keep_on_train_flag and step <= last_train_step: continue
+            if keep_on_train_flag and step == (last_train_step+1): keep_on_train_flag=False
+
             # get batch data
             try:
                 x_enc_inp, x_dec_inp_full, x_dec_out, y_enc_inp, y_dec_inp_full, y_dec_out = next(batcher)
@@ -73,14 +83,16 @@ def main():
 
             if step % args.display_loss_step == 0:
                 print("Step %d | [%d/%d] | [%d/%d]" % (train_step, epoch+1, args.num_epoch, step, train_data_len//args.batch_size), end='')
-                show_loss(x_log, y_log, t_log, log)
+                LOGGER.write("Step %d | [%d/%d] | [%d/%d]" % (train_step, epoch+1, args.num_epoch, step, train_data_len//args.batch_size))
+                show_loss(x_log, y_log, t_log, log, LOGGER)
         
             if step % args.display_info_step == 0 and step != 0:
                 save_path = saver.save(sess, exp_path+model_name, global_step=train_step)
                 print("Model saved in file: %s" % save_path)
                 # model.show_encoder(sess, x_enc_inp[-1], x_dec_inp[-1])
                 # model.show_decoder(sess, y_enc_inp[-1], y_dec_inp[-1])
-                model.show_sample(sess, x_enc_inp[-1], y_dec_out[-1])
+                model.show_sample(sess, x_enc_inp[-1], y_dec_out[-1], LOGGER)
+                LOGGER.flush()
                 
         model.show_encoder(sess, x_enc_inp[-1], x_dec_inp[-1])
         model.show_decoder(sess, y_enc_inp[-1], y_dec_inp[-1])
