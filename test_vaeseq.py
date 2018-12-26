@@ -1,39 +1,52 @@
 from __future__ import print_function
-from data_reddit import REDDIT
-from model_vae import VRAE
-from config import args
+
 import json
 import tensorflow as tf
 from tqdm import tqdm
+
+from data.data_reddit import REDDIT
+from modules.vaeseq import VAESEQ
+from config import args
 from measures import evaluation_utils
 
+import os
+os.environ["CUDA_VISIBLE_DEVICES"] = "0"
+
 def main():
+    ## Parameters
+    args.max_len = 150
+    args.batch_size = 64
+    args.max_dec_len = 151
+    # args.display_info_step = 10000
+    print(args)
+    exp_path = "./saved/vaeseq_trans/"
+
+    ## DataLoader
     dataloader = REDDIT(batch_size=64, vocab_limit=35000, max_input_len=150, max_output_len=150)
     params = {
         'vocab_size': len(dataloader.word2idx),
         'word2idx': dataloader.word2idx,
         'idx2word': dataloader.idx2word,}
     print('Vocab Size:', params['vocab_size'])
-    args.max_len = 150
-    args.batch_size = 64
-    args.max_dec_len = 151
-    # args.display_info_step = 10000
-    print(args)
-    model = VRAE(params)
-    saver = tf.train.Saver()
 
+    ## ModelInit    
+    model = VAESEQ(params)
+
+    ## Session
+    saver = tf.train.Saver()
     config = tf.ConfigProto(allow_soft_placement=True)
     config.gpu_options.allow_growth=True
     sess = tf.Session(config=config)
     sess.run(tf.global_variables_initializer())
 
-    saver.restore(sess, './saved/vrae.ckpt')
-    print("[RESTORE MODEL]")
-
+    restore_path = tf.train.latest_checkpoint(exp_path)
+    saver.restore(sess, restore_path)
+    print("Model restore from file: %s" % (restore_path))
+        
     # Parpear Dir
-    ref_file = "./saved/test.input.txt"
-    trans_file = "./saved/test.output.txt"
-    result_file = "./saved/test.result.txt"
+    ref_file = exp_path+"test.input.txt"
+    trans_file = exp_path+"test.output.txt"
+    result_file = exp_path+"test.result.txt"
     test_file = "./corpus/reddit/test.txt"
 
     # Test Dir
@@ -44,10 +57,10 @@ def main():
 
     # Test DataSet
     test_len = 20000
-    batcher = dataloader._load_data(fpath=test_file)
+    batcher = dataloader.load_data(fpath=test_file)
     for _ in tqdm(range((test_len-1)//args.batch_size+1)):
         try:
-            enc_inp, _, _ = next(batcher)
+            enc_inp, _, _, _, _, _ = next(batcher)
             # dec_inp = dataloader.update_word_dropout(dec_inp_full)
         except StopIteration:
             print("there are no more examples")

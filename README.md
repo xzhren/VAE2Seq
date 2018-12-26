@@ -11,9 +11,12 @@
     - vae model
   3. forcked measure code from https://github.com/tensorflow/nmt/tree/master/nmt/scripts
   4. Seq2VAE
+  5. Seq2VAE Evaluation
 
 ## TODO
   - [x] keep on training
   - [x] record log in file
   - [ ] trans_loss should be ?
   - [ ] latent_size is 16, Is it too small ?
+  - [ ] train step save error
+  - [ ] visual v_mean in tensorboard histom
