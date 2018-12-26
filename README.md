@@ -15,3 +15,5 @@
 ## TODO
   - [x] keep on training
   - [x] record log in file
+  - [ ] trans_loss should be ?
+  - [ ] latent_size is 16, Is it too small ?

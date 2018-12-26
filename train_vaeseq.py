@@ -20,7 +20,7 @@ def main():
     args.max_dec_len = 151
     args.display_info_step = 1000
     print(args)
-    exp_path = "./saved/vaeseq/"
+    exp_path = "./saved/vaeseq_trans/"
     model_name = "vrae.ckpt"
     train_data_len = 3384185
     train_data_path = "./corpus/reddit/train.txt"
@@ -36,7 +36,7 @@ def main():
 
     ## ModelInit    
     model = VAESEQ(params)
-    log_path = "./saved/vaeseq/log.txt"
+    log_path = exp_path+"log.txt"
     LOGGER = open(log_path, "a")
 
     ## Session
@@ -95,11 +95,11 @@ def main():
                 model.show_sample(sess, x_enc_inp[-1], y_dec_out[-1], LOGGER)
                 LOGGER.flush()
                 
-        model.show_encoder(sess, x_enc_inp[-1], x_dec_inp[-1])
-        model.show_decoder(sess, y_enc_inp[-1], y_dec_inp[-1])
-        model.show_sample(sess, x_enc_inp[-1], y_dec_out[-1])
         save_path = saver.save(sess, exp_path+model_name, global_step=train_step)
         print("Model saved in file: %s" % save_path)
+        model.show_encoder(sess, x_enc_inp[-1], x_dec_inp[-1])
+        model.show_decoder(sess, y_enc_inp[-1], y_dec_inp[-1])
+        model.show_sample(sess, x_enc_inp[-1], y_dec_out[-1], LOGGER)
 
 
 if __name__ == '__main__':

@@ -6,15 +6,37 @@ from data.data_reddit import PAD_TOKEN
 
 class Transformer:
     def __init__(self, encoder, decoder):
-        self.input = encoder.z
-        self.output = decoder.z
+        self.input = encoder.z_mean
+        self.output = decoder.z_mean
+
+        self.encoder_class_num = 300
+        self.decoder_class_num = 300
 
         self._build_graph(encoder.loss, decoder.loss)
         self._init_summary()
 
     def _build_graph(self, encoder_loss, decoder_loss):
-        with tf.variable_scope('mlp'):
-            self.predition = tf.layers.dense(self.input, args.latent_size)
+        # input: b x l
+        # [o]: predition: b x l
+        with tf.variable_scope('trans_encoder'):
+            trans_encoder_embedding = tf.get_variable('trans_encoder_embedding',
+                [self.encoder_class_num, args.latent_size],
+                tf.float32)
+            input_dist = tf.matmul(self.input, trans_encoder_embedding, transpose_b=True) # b x encoder_class_num
+            input_dist = tf.nn.softmax(input_dist)
+        with tf.variable_scope('trans'):
+            trans_w = tf.get_variable('trans_w', [self.encoder_class_num, self.decoder_class_num], tf.float32)
+            input_dist = tf.matmul(input_dist, trans_w) # b x decoder_class_num
+            input_dist = tf.nn.softmax(input_dist)
+        with tf.variable_scope('trans_decoder'):
+            trans_decoder_embedding = tf.get_variable('trans_decoder_embedding',
+                [self.decoder_class_num, args.latent_size],
+                tf.float32)
+            self.predition = tf.matmul(input_dist, trans_decoder_embedding) # b x l
+        print("trans, input:", self.input)
+        print("trans, predition:", self.predition)
+        # with tf.variable_scope('mlp'):
+        #     self.predition = tf.layers.dense(self.input, args.latent_size)
         with tf.variable_scope('loss'):
             self.loss = tf.losses.mean_squared_error(self.predition, self.output)
             self.merged_loss = self.loss*1000 + encoder_loss + decoder_loss
