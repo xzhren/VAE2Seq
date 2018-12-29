@@ -44,17 +44,21 @@ class VAESEQ:
                 x_enc_inp, x_dec_inp, x_dec_out, y_enc_inp, y_dec_inp, y_dec_out)
         return log
 
-    def show_encoder(self, sess, x, y):
-        self.encoder_model.generate(sess)
-        self.encoder_model.reconstruct(sess, x, y)
-        self.encoder_model.customized_reconstruct(sess, 'i love this film and i think it is one of the best films')
-        self.encoder_model.customized_reconstruct(sess, 'this movie is a waste of time and there is no point to watch it') 
+    def show_encoder(self, sess, x, y, LOGGER):
+        # self.encoder_model.generate(sess)
+        infos = self.encoder_model.reconstruct(sess, x, y)
+        # self.encoder_model.customized_reconstruct(sess, 'i love this film and i think it is one of the best films')
+        # self.encoder_model.customized_reconstruct(sess, 'this movie is a waste of time and there is no point to watch it') 
+        LOGGER.write(infos)
+        print(infos.strip())
 
-    def show_decoder(self, sess, x, y):
-        self.decoder_model.generate(sess)
-        self.decoder_model.reconstruct(sess, x, y)
-        self.decoder_model.customized_reconstruct(sess, 'i love this film and i think it is one of the best films')
-        self.decoder_model.customized_reconstruct(sess, 'this movie is a waste of time and there is no point to watch it')
+    def show_decoder(self, sess, x, y, LOGGER):
+        # self.decoder_model.generate(sess)
+        infos = self.decoder_model.reconstruct(sess, x, y)
+        # self.decoder_model.customized_reconstruct(sess, 'i love this film and i think it is one of the best films')
+        # self.decoder_model.customized_reconstruct(sess, 'this movie is a waste of time and there is no point to watch it')
+        LOGGER.write(infos)
+        print(infos.strip())
 
     def show_sample(self, sess, x, y, LOGGER):
         infos = self.transformer.sample_test(sess, x, y, self.encoder_model, self.decoder_model, self.predicted_ids_op)

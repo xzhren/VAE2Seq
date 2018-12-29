@@ -90,15 +90,15 @@ def main():
             if step % args.display_info_step == 0 and step != 0:
                 save_path = saver.save(sess, exp_path+model_name, global_step=train_step)
                 print("Model saved in file: %s" % save_path)
-                # model.show_encoder(sess, x_enc_inp[-1], x_dec_inp[-1])
-                # model.show_decoder(sess, y_enc_inp[-1], y_dec_inp[-1])
+                model.show_encoder(sess, x_enc_inp[-1], x_dec_inp[-1], LOGGER)
+                model.show_decoder(sess, y_enc_inp[-1], y_dec_inp[-1], LOGGER)
                 model.show_sample(sess, x_enc_inp[-1], y_dec_out[-1], LOGGER)
                 LOGGER.flush()
                 
         save_path = saver.save(sess, exp_path+model_name, global_step=train_step)
         print("Model saved in file: %s" % save_path)
-        model.show_encoder(sess, x_enc_inp[-1], x_dec_inp[-1])
-        model.show_decoder(sess, y_enc_inp[-1], y_dec_inp[-1])
+        model.show_encoder(sess, x_enc_inp[-1], x_dec_inp[-1], LOGGER)
+        model.show_decoder(sess, y_enc_inp[-1], y_dec_inp[-1], LOGGER)
         model.show_sample(sess, x_enc_inp[-1], y_dec_out[-1], LOGGER)
 
 

@@ -3,7 +3,7 @@ import numpy as np
 
 from config import args
 from modules.modified import ModifiedBasicDecoder, ModifiedBeamSearchDecoder
-from data.data_reddit import START_TOKEN, END_TOKEN, UNK_STRING, PAD_STRING
+from data.data_reddit import START_TOKEN, END_TOKEN, PAD_TOKEN, UNK_STRING, PAD_STRING
 
 class BaseVAE:
     def __init__(self, params, prefix):
@@ -44,6 +44,9 @@ class BaseVAE:
         tf.summary.scalar(prefix+"_kl_w", self.kl_w)
         tf.summary.scalar(prefix+"_kl_loss", self.kl_loss)
         tf.summary.scalar(prefix+"_loss", self.loss)
+        tf.summary.histogram(prefix+"_z_mean", self.z_mean)
+        tf.summary.histogram(prefix+"_z_logvar", self.z_logvar)
+        tf.summary.histogram(prefix+"_z", self.z)
         self.merged_summary_op = tf.summary.merge_all()
 
     def _encode(self):
@@ -157,7 +160,7 @@ class BaseVAE:
     def _nll_loss_fn(self):
         # mask_fn = lambda l : tf.sequence_mask(l, tf.reduce_max(l), dtype=tf.float32)
         mask_fn = lambda l : tf.sequence_mask(l, args.max_dec_len, dtype=tf.float32)
-        mask = mask_fn(self.dec_seq_len) # b x t 64 x ?
+        mask = mask_fn(self.dec_seq_len) # b x t = 64 x ?
         if (args.num_sampled <= 0) or (args.num_sampled >= self.params['vocab_size']):
             return tf.reduce_sum(tf.contrib.seq2seq.sequence_loss(
                 logits = self.training_logits,
@@ -168,6 +171,14 @@ class BaseVAE:
         else:
             with tf.variable_scope('decoding/decoder/dense', reuse=True):
                 mask = tf.reshape(mask, [-1])
+                # return tf.reduce_sum(mask * tf.nn.sampled_softmax_loss(
+                #     weights = tf.transpose(tf.get_variable('kernel')),
+                #     biases = tf.get_variable('bias'),
+                #     labels = tf.reshape(self.dec_out, [-1, 1]),
+                #     inputs = tf.reshape(self.training_rnn_out, [-1, args.rnn_size]),
+                #     num_sampled = args.num_sampled,
+                #     num_classes = self.params['vocab_size'],
+                # )) / tf.to_float(self._batch_size)
                 return tf.reduce_sum(mask * tf.nn.sampled_softmax_loss(
                     weights = tf.transpose(tf.get_variable('kernel')),
                     biases = tf.get_variable('bias'),
@@ -175,7 +186,7 @@ class BaseVAE:
                     inputs = tf.reshape(self.training_rnn_out, [-1, args.rnn_size]),
                     num_sampled = args.num_sampled,
                     num_classes = self.params['vocab_size'],
-                )) / tf.to_float(self._batch_size)
+                )) / tf.reduce_sum(mask)
 
     def _kl_w_fn(self, anneal_max, anneal_bias, global_step):
         return anneal_max * tf.sigmoid((10 / anneal_bias) * (
@@ -204,13 +215,13 @@ class BaseVAE:
 
     def reconstruct(self, sess, sentence, sentence_dropped):
         idx2word = self.params['idx2word']
-        print('I: %s' % ' '.join([idx2word[idx] for idx in sentence]))
-        print()
-        print('D: %s' % ' '.join([idx2word[idx] for idx in sentence_dropped]))
-        print()
+        infos = ""
+        infos += 'I: %s\n' % ' '.join([idx2word[idx] for idx in sentence if idx != PAD_TOKEN])
+        infos += 'D: %s\n' % ' '.join([idx2word[idx] for idx in sentence_dropped if idx != PAD_TOKEN])
         predicted_ids = sess.run(self.predicted_ids, {self.enc_inp: np.atleast_2d(sentence)})[0]
-        print('O: %s' % ' '.join([idx2word[idx] for idx in predicted_ids]))
-        print('-'*12)
+        infos += 'O: %s\n' % ' '.join([idx2word[idx] for idx in predicted_ids if idx != PAD_TOKEN])
+        infos += '-'*12 + "\n"
+        return infos
     
     def get_new_w(self, w):
         idx = self.params['word2idx'][w]

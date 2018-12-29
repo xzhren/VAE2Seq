@@ -53,6 +53,7 @@ class Transformer:
     def _init_summary(self):
         tf.summary.scalar("trans_loss", self.loss)
         tf.summary.scalar("merged_loss", self.merged_loss)
+        tf.summary.histogram("z_predition", self.predition)
         self.merged_summary_op = tf.summary.merge_all()
         
     def _gradient_clipping(self, loss_op):

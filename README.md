@@ -19,4 +19,4 @@
   - [ ] trans_loss should be ?
   - [ ] latent_size is 16, Is it too small ?
   - [ ] train step save error
-  - [ ] visual v_mean in tensorboard histom
+  - [x] visual v_mean in tensorboard histom
