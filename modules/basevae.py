@@ -209,6 +209,8 @@ class BaseVAE:
         _, summaries, loss, nll_loss, kl_w, kl_loss, step = sess.run(
             [self.train_op, self.merged_summary_op, self.loss, self.nll_loss, self.kl_w, self.kl_loss, self.global_step],
                 {self.enc_inp: enc_inp, self.dec_inp: dec_inp, self.dec_out: dec_out})
+                # {self.enc_inp: enc_inp, self.dec_inp: dec_inp, self.dec_out: dec_out,
+                #  'encodervae/enc_inp:0':enc_inp, 'encodervae/dec_inp:0':dec_inp, 'encodervae/dec_out:0':dec_out})
         return {'summaries': summaries, 'loss': loss, 'nll_loss': nll_loss,
                 'kl_w': kl_w, 'kl_loss': kl_loss, 'step': step}
 
@@ -237,12 +239,12 @@ class BaseVAE:
         print('O: %s' % ' '.join([idx2word[idx] for idx in predicted_ids]))
         print('-'*12)
 
-    # def evaluation(self, sess, enc_inp, outputfile):
-    #     idx2word = self.params['idx2word']
-    #     predicted_ids_lt = sess.run(self.predicted_ids, {self.enc_inp:enc_inp})
-    #     for predicted_ids in predicted_ids_lt:
-    #         with open(outputfile, "a") as f:
-    #             f.write('%s\n' % ' '.join([idx2word[idx] for idx in predicted_ids]))
+    def evaluation(self, sess, enc_inp, outputfile):
+        idx2word = self.params['idx2word']
+        predicted_ids_lt = sess.run(self.predicted_ids, {self.enc_inp:enc_inp})
+        for predicted_ids in predicted_ids_lt:
+            with open(outputfile, "a") as f:
+                f.write('%s\n' % ' '.join([idx2word[idx] for idx in predicted_ids]))
 
     def generate(self, sess):
         predicted_ids = sess.run(self.predicted_ids,

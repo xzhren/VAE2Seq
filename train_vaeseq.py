@@ -19,6 +19,10 @@ def main():
     args.batch_size = 64
     args.max_dec_len = 151
     args.display_info_step = 1000
+    args.vocab_limit = 35000
+
+    args.rnn_size = 256
+    args.latent_size = 256
     print(args)
     exp_path = "./saved/vaeseq_trans/"
     model_name = "vrae.ckpt"
@@ -27,7 +31,7 @@ def main():
     EPOCH_STEPS = (train_data_len-1)//args.batch_size+1
 
     ## DataLoader
-    dataloader = REDDIT(batch_size=64, vocab_limit=35000, max_input_len=150, max_output_len=150)
+    dataloader = REDDIT(batch_size=args.batch_size, vocab_limit=args.vocab_limit, max_input_len=args.max_len, max_output_len=args.max_len)
     params = {
         'vocab_size': len(dataloader.word2idx),
         'word2idx': dataloader.word2idx,
@@ -74,10 +78,10 @@ def main():
                 print("there are no more examples")
                 break
                 
-            # y_log = model.train_encoder(sess, y_enc_inp, y_dec_inp, y_dec_out)
-            # x_log = model.train_encoder(sess, x_enc_inp, x_dec_inp, x_dec_out)
+            x_log = model.train_encoder(sess, x_enc_inp, x_dec_inp, x_dec_out)
+            # y_log = model.train_decoder(sess, y_enc_inp, y_dec_inp, y_dec_out)
             # t_log = model.train_transformer(sess, x_enc_inp, x_dec_inp, x_dec_out, y_enc_inp, y_dec_inp, y_dec_out)
-            log = model.merged_train(sess, x_enc_inp, x_dec_inp, x_dec_out, y_enc_inp, y_dec_inp, y_dec_out)
+            # log = model.merged_train(sess, x_enc_inp, x_dec_inp, x_dec_out, y_enc_inp, y_dec_inp, y_dec_out)
 
             # get the summaries and iteration number so we can write summaries to tensorboard
             train_step = summary_flush(x_log, y_log, t_log, log, summary_writer)

@@ -64,6 +64,12 @@ class VAESEQ:
         infos = self.transformer.sample_test(sess, x, y, self.encoder_model, self.decoder_model, self.predicted_ids_op)
         LOGGER.write(infos)
         print(infos.strip())
+
+    def evaluation_encoder_vae(self, sess, enc_inp, outputfile):
+        self.encoder_model.evaluation(sess, enc_inp, outputfile)
+
+    def evaluation_decoder_vae(self, sess, enc_inp, outputfile):
+        self.decoder_model.evaluation(sess, enc_inp, outputfile)
     
     def evaluation(self, sess, enc_inp, outputfile):
         idx2word = self.params['idx2word']
