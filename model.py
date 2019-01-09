@@ -198,7 +198,7 @@ class VRAE:
         print()
         sentence = sentence + [self.params['word2idx']['<pad>']] * (args.max_len-len(sentence))
         predicted_ids = sess.run(self.predicted_ids, {self.enc_inp: np.atleast_2d(sentence)})[0]
-        print('O: %s' % ' '.join([idx2word[idx] for idx in predicted_ids]))
+        print(len(predicted_ids), 'O: %s' % ' '.join([idx2word[idx] for idx in predicted_ids]))
         print('-'*12)
 
 

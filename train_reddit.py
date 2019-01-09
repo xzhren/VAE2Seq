@@ -26,8 +26,8 @@ def main():
     sess = tf.Session(config=config)
     sess.run(tf.global_variables_initializer())
 
-    summary_writer = tf.summary.FileWriter("./saved/")
-    saver.restore(sess, './saved/vrae.ckpt')
+    summary_writer = tf.summary.FileWriter("./saved/vrae/")
+    saver.restore(sess, './saved/vrae/vrae.ckpt')
 
     train_data_len = 3384185
     for epoch in range(args.num_epoch):
@@ -50,6 +50,10 @@ def main():
             # print(step, "dec_inp_full.shape:", dec_inp_full.shape)
             # print(step, "dec_out.shape:", dec_out.shape)
 
+            # idx2word = dataloader.idx2word
+            # print(step, "enc_inp:", ' '.join([idx2word[idx] for idx in enc_inp[-1]]))
+            # print(step, "dec_inp:", ' '.join([idx2word[idx] for idx in dec_inp[-1]]))
+            # print(step, "dec_out:", ' '.join([idx2word[idx] for idx in dec_out[-1]]))
             log = model.train_session(sess, enc_inp, dec_inp, dec_out)
 
             # get the summaries and iteration number so we can write summaries to tensorboard
@@ -67,7 +71,7 @@ def main():
                 model.reconstruct(sess, enc_inp[-1], dec_inp[-1])
                 model.customized_reconstruct(sess, 'i love this film and i think it is one of the best films')
                 model.customized_reconstruct(sess, 'this movie is a waste of time and there is no point to watch it')
-                save_path = saver.save(sess, './saved/vrae.ckpt', global_step=train_step)
+                save_path = saver.save(sess, './saved/vrae/vrae.ckpt', global_step=train_step)
                 print("Model saved in file: %s" % save_path)
 
         model.generate(sess)
@@ -75,7 +79,7 @@ def main():
         model.customized_reconstruct(sess, 'i love this film and i think it is one of the best films')
         model.customized_reconstruct(sess, 'this movie is a waste of time and there is no point to watch it')
         
-        save_path = saver.save(sess, './saved/vrae.ckpt')
+        save_path = saver.save(sess, './saved/vrae/vrae.ckpt')
         print("Model saved in file: %s" % save_path)
 
 
