@@ -11,13 +11,13 @@ from utils.train_utils import summary_flush
 from config import args
 
 import os
-os.environ["CUDA_VISIBLE_DEVICES"] = "0"
+os.environ["CUDA_VISIBLE_DEVICES"] = "2"
 
 def main():
     ## Parameters
     args.max_len = 150
     args.batch_size = 64
-    args.max_dec_len = 151
+    args.max_dec_len = args.max_len+1
     args.display_info_step = 1000
     args.vocab_limit = 35000
 
@@ -78,10 +78,10 @@ def main():
                 print("there are no more examples")
                 break
                 
-            x_log = model.train_encoder(sess, x_enc_inp, x_dec_inp, x_dec_out)
+            # x_log = model.train_encoder(sess, x_enc_inp, x_dec_inp, x_dec_out)
             # y_log = model.train_decoder(sess, y_enc_inp, y_dec_inp, y_dec_out)
             # t_log = model.train_transformer(sess, x_enc_inp, x_dec_inp, x_dec_out, y_enc_inp, y_dec_inp, y_dec_out)
-            # log = model.merged_train(sess, x_enc_inp, x_dec_inp, x_dec_out, y_enc_inp, y_dec_inp, y_dec_out)
+            log = model.merged_train(sess, x_enc_inp, x_dec_inp, x_dec_out, y_enc_inp, y_dec_inp, y_dec_out)
 
             # get the summaries and iteration number so we can write summaries to tensorboard
             train_step = summary_flush(x_log, y_log, t_log, log, summary_writer)

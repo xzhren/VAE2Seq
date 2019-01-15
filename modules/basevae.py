@@ -6,48 +6,53 @@ from modules.modified import ModifiedBasicDecoder, ModifiedBeamSearchDecoder
 from data.data_reddit import START_TOKEN, END_TOKEN, PAD_TOKEN, UNK_STRING, PAD_STRING
 
 class BaseVAE:
-    def __init__(self, params, prefix):
+    def __init__(self, params, inputs, prefix):
         self.params = params
-        self._build_inputs()
+        self._build_inputs(inputs)
         self._build_graph()
         self._init_summary(prefix)
 
-    def _build_inputs(self):
-        # placeholders
-        self.enc_inp = tf.placeholder(tf.int32, [None, args.max_len], name="enc_inp")
-        self.dec_inp = tf.placeholder(tf.int32, [None, args.max_len+1], name="dec_inp")
-        self.dec_out = tf.placeholder(tf.int32, [None, args.max_len+1], name="dec_out")
-        # global helpers
-        self._batch_size = tf.shape(self.enc_inp)[0]
-        self.enc_seq_len = tf.count_nonzero(self.enc_inp, 1, dtype=tf.int32)
-        self.dec_seq_len = tf.count_nonzero(self.dec_out, 1, dtype=tf.int32)
-        print("self.dec_seq_len :", self.dec_seq_len ) # 64
+    def _build_inputs(self, inputs):
+        with tf.variable_scope('placeholder'):
+            # placeholders
+            self.enc_inp = inputs[0]
+            self.dec_inp = inputs[1]
+            self.dec_out = inputs[2]
+            # global helpers
+            self._batch_size = tf.shape(self.enc_inp)[0]
+            self.enc_seq_len = tf.count_nonzero(self.enc_inp, 1, dtype=tf.int32)
+            self.dec_seq_len = tf.count_nonzero(self.dec_out, 1, dtype=tf.int32)
+            print("self.dec_seq_len :", self.dec_seq_len ) # 64
 
     def _build_graph(self):
-        self._decode(self._reparam(*self._encode()))
-        
-        self.global_step = tf.Variable(0, trainable=False)
+        encoded_state = self._encode()
+        z = self._reparam(encoded_state)
+        self._decode(z)
 
-        self.nll_loss = self._nll_loss_fn()
-        self.kl_w = self._kl_w_fn(args.anneal_max, args.anneal_bias, self.global_step)
-        self.kl_loss = self._kl_loss_fn(self.z_mean, self.z_logvar)
+        with tf.variable_scope('loss'):
+            self.global_step = tf.Variable(0, trainable=False)
+            self.nll_loss = self._nll_loss_fn()
+            self.kl_w = self._kl_w_fn(args.anneal_max, args.anneal_bias, self.global_step)
+            self.kl_loss = self._kl_loss_fn(self.z_mean, self.z_logvar)
         
-        loss_op = self.nll_loss + self.kl_w * self.kl_loss
-        self.loss = loss_op
+            loss_op = self.nll_loss + self.kl_w * self.kl_loss
+            self.loss = loss_op
         
-        clipped_gradients, params = self._gradient_clipping(loss_op)
-        self.train_op = tf.train.AdamOptimizer().apply_gradients(
-            zip(clipped_gradients, params), global_step=self.global_step)
+        with tf.variable_scope('optimizer'):
+            clipped_gradients, params = self._gradient_clipping(loss_op)
+            self.train_op = tf.train.AdamOptimizer().apply_gradients(
+                zip(clipped_gradients, params), global_step=self.global_step)
 
     def _init_summary(self, prefix):
-        tf.summary.scalar(prefix+"_nll_loss", self.nll_loss)
-        tf.summary.scalar(prefix+"_kl_w", self.kl_w)
-        tf.summary.scalar(prefix+"_kl_loss", self.kl_loss)
-        tf.summary.scalar(prefix+"_loss", self.loss)
-        tf.summary.histogram(prefix+"_z_mean", self.z_mean)
-        tf.summary.histogram(prefix+"_z_logvar", self.z_logvar)
-        tf.summary.histogram(prefix+"_z", self.z)
-        self.merged_summary_op = tf.summary.merge_all()
+        with tf.variable_scope('summary'):
+            tf.summary.scalar(prefix+"_nll_loss", self.nll_loss)
+            tf.summary.scalar(prefix+"_kl_w", self.kl_w)
+            tf.summary.scalar(prefix+"_kl_loss", self.kl_loss)
+            tf.summary.scalar(prefix+"_loss", self.loss)
+            tf.summary.histogram(prefix+"_z_mean", self.z_mean)
+            tf.summary.histogram(prefix+"_z_logvar", self.z_logvar)
+            tf.summary.histogram(prefix+"_z", self.z)
+            self.merged_summary_op = tf.summary.merge_all()
 
     def _encode(self):
         # the embedding is shared between encoder and decoder
@@ -62,19 +67,24 @@ class BaseVAE:
                 inputs = tf.nn.embedding_lookup(tied_embedding, self.enc_inp),
                 sequence_length = self.enc_seq_len,
                 dtype = tf.float32)
-        encoded_state = tf.concat((state_fw, state_bw), -1)
-        self.z_mean = tf.layers.dense(encoded_state, args.latent_size)
-        self.z_logvar = tf.layers.dense(encoded_state, args.latent_size)
-        return self.z_mean, self.z_logvar
 
-    def _reparam(self, z_mean, z_logvar):
-        self.gaussian_noise = tf.truncated_normal(tf.shape(z_logvar))
-        self.z = z_mean + tf.exp(0.5 * z_logvar) * self.gaussian_noise
+            encoded_state = tf.concat((state_fw, state_bw), -1)
+            self.tied_embedding = tied_embedding
+        return encoded_state
+
+    def _reparam(self, encoded_state):
+        with tf.variable_scope('reparam'):
+            self.z_mean = tf.layers.dense(encoded_state, args.latent_size)
+            self.z_logvar = tf.layers.dense(encoded_state, args.latent_size)
+            
+            self.gaussian_noise = tf.truncated_normal(tf.shape(self.z_logvar))
+            self.z = self.z_mean + tf.exp(0.5 * self.z_logvar) * self.gaussian_noise
         return self.z
 
     def _decode(self, z):
-        self.training_rnn_out, self.training_logits = self._decoder_training(z)
-        self.predicted_ids = self._decoder_inference(z)
+        with tf.variable_scope('decoding'):
+            self.training_rnn_out, self.training_logits = self._decoder_training(z)
+            self.predicted_ids = self._decoder_inference(z)
 
     def _rnn_cell(self, rnn_size=None, reuse=False):
         rnn_size = args.rnn_size if rnn_size is None else rnn_size
@@ -101,53 +111,49 @@ class BaseVAE:
         return tensor
 
     def _decoder_training(self, z):
-        with tf.variable_scope('encoder', reuse=True):
-            tied_embedding = tf.get_variable('tied_embedding', [self.params['vocab_size'], args.embedding_dim])
-
-        with tf.variable_scope('decoding'):
-            init_state = tf.layers.dense(self.z, args.rnn_size, tf.nn.elu)
-            
-            helper = tf.contrib.seq2seq.TrainingHelper(
-                inputs = tf.nn.embedding_lookup(tied_embedding, self.dec_inp),
-                sequence_length = self.dec_seq_len)
-            decoder = ModifiedBasicDecoder(
-                cell = self._rnn_cell(),
-                helper = helper,
-                initial_state = init_state,
-                concat_z = self.z)
-            # b x t x h
-            decoder_output, _, _ = tf.contrib.seq2seq.dynamic_decode(
-                decoder = decoder)
-            logits = self._dynamic_time_pad(decoder_output.rnn_output, args.max_dec_len)
+        tied_embedding = self.tied_embedding
+        init_state = tf.layers.dense(self.z, args.rnn_size, tf.nn.elu)
         
-            with tf.variable_scope('decoder'):
-                # b x t x h => b x t x v ? # 64,?,200
-                lin_proj = tf.layers.dense(logits, self.params['vocab_size'], name="dense")
+        self.decoder_cells = self._rnn_cell()
 
-        return logits, lin_proj
+        helper = tf.contrib.seq2seq.TrainingHelper(
+            inputs = tf.nn.embedding_lookup(tied_embedding, self.dec_inp),
+            sequence_length = self.dec_seq_len)
+        decoder = ModifiedBasicDecoder(
+            cell = self.decoder_cells,
+            helper = helper,
+            initial_state = init_state,
+            concat_z = self.z)
+        # b x t x h
+        decoder_output, _, _ = tf.contrib.seq2seq.dynamic_decode(
+            decoder = decoder)
+        logits = self._dynamic_time_pad(decoder_output.rnn_output, args.max_dec_len)
+
+        # b x t x h => b x t x v ? # 64,?,200
+        lin_proj = tf.layers.Dense(self.params['vocab_size'], _scope='out_proj_dense')
+        logits_dist = lin_proj.apply(logits) 
+
+        return logits, logits_dist
 
     def _decoder_inference(self, z):
+        tied_embedding = self.tied_embedding
+        init_state = tf.layers.dense(self.z, args.rnn_size, tf.nn.elu, reuse=True)
         tiled_z = tf.tile(tf.expand_dims(self.z, 1), [1, args.beam_width, 1])
-        
-        with tf.variable_scope('encoder', reuse=True):
-            tied_embedding = tf.get_variable('tied_embedding', [self.params['vocab_size'], args.embedding_dim])
 
-        with tf.variable_scope('decoding', reuse=True):
-            init_state = tf.layers.dense(self.z, args.rnn_size, tf.nn.elu, reuse=True)
-
-            decoder = ModifiedBeamSearchDecoder(
-                cell = self._rnn_cell(reuse=True),
-                embedding = tied_embedding,
-                start_tokens = tf.tile(tf.constant(
-                    [self.params['word2idx']['<S>']], dtype=tf.int32), [self._batch_size]),
-                end_token = self.params['word2idx']['</S>'],
-                initial_state = tf.contrib.seq2seq.tile_batch(init_state, args.beam_width),
-                beam_width = args.beam_width,
-                output_layer = tf.layers.Dense(self.params['vocab_size'], _reuse=True),
-                concat_z = tiled_z)
-            decoder_output, _, _ = tf.contrib.seq2seq.dynamic_decode(
-                decoder = decoder,
-                maximum_iterations = 2*tf.reduce_max(self.enc_seq_len))
+        decoder = ModifiedBeamSearchDecoder(
+            cell = self.decoder_cells,
+            embedding = tied_embedding,
+            start_tokens = tf.tile(tf.constant(
+                [self.params['word2idx']['<S>']], dtype=tf.int32), [self._batch_size]),
+            end_token = self.params['word2idx']['</S>'],
+            initial_state = tf.contrib.seq2seq.tile_batch(init_state, args.beam_width),
+            beam_width = args.beam_width,
+            output_layer = tf.layers.Dense(self.params['vocab_size'], _scope="out_proj_dense", _reuse=True),
+            concat_z = tiled_z)
+            
+        decoder_output, _, _ = tf.contrib.seq2seq.dynamic_decode(
+            decoder = decoder,
+            maximum_iterations = 2*tf.reduce_max(self.enc_seq_len))
 
         return decoder_output.predicted_ids[:, :, 0]        
     
@@ -161,32 +167,12 @@ class BaseVAE:
         # mask_fn = lambda l : tf.sequence_mask(l, tf.reduce_max(l), dtype=tf.float32)
         mask_fn = lambda l : tf.sequence_mask(l, args.max_dec_len, dtype=tf.float32)
         mask = mask_fn(self.dec_seq_len) # b x t = 64 x ?
-        if (args.num_sampled <= 0) or (args.num_sampled >= self.params['vocab_size']):
-            return tf.reduce_sum(tf.contrib.seq2seq.sequence_loss(
-                logits = self.training_logits,
-                targets = self.dec_out,
-                weights = mask,
-                average_across_timesteps = False,
-                average_across_batch = True))
-        else:
-            with tf.variable_scope('decoding/decoder/dense', reuse=True):
-                mask = tf.reshape(mask, [-1])
-                # return tf.reduce_sum(mask * tf.nn.sampled_softmax_loss(
-                #     weights = tf.transpose(tf.get_variable('kernel')),
-                #     biases = tf.get_variable('bias'),
-                #     labels = tf.reshape(self.dec_out, [-1, 1]),
-                #     inputs = tf.reshape(self.training_rnn_out, [-1, args.rnn_size]),
-                #     num_sampled = args.num_sampled,
-                #     num_classes = self.params['vocab_size'],
-                # )) / tf.to_float(self._batch_size)
-                return tf.reduce_sum(mask * tf.nn.sampled_softmax_loss(
-                    weights = tf.transpose(tf.get_variable('kernel')),
-                    biases = tf.get_variable('bias'),
-                    labels = tf.reshape(self.dec_out, [-1, 1]),
-                    inputs = tf.reshape(self.training_rnn_out, [-1, args.rnn_size]),
-                    num_sampled = args.num_sampled,
-                    num_classes = self.params['vocab_size'],
-                )) / tf.reduce_sum(mask)
+        return tf.reduce_sum(tf.contrib.seq2seq.sequence_loss(
+            logits = self.training_logits,
+            targets = self.dec_out,
+            weights = mask,
+            average_across_timesteps = False,
+            average_across_batch = True))
 
     def _kl_w_fn(self, anneal_max, anneal_bias, global_step):
         return anneal_max * tf.sigmoid((10 / anneal_bias) * (

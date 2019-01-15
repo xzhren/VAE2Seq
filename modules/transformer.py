@@ -6,8 +6,10 @@ from data.data_reddit import PAD_TOKEN
 
 class Transformer:
     def __init__(self, encoder, decoder):
-        self.input = encoder.z_mean
-        self.output = decoder.z_mean
+        # self.input = encoder.z_mean
+        # self.output = decoder.z_mean
+        self.input = encoder.z
+        self.output = decoder.z
 
         self.encoder_class_num = 300
         self.decoder_class_num = 300
@@ -41,14 +43,15 @@ class Transformer:
             self.loss = tf.losses.mean_squared_error(self.predition, self.output)
             self.merged_loss = self.loss*1000 + encoder_loss + decoder_loss
         
-        self.global_step = tf.Variable(0, trainable=False)
-        clipped_gradients, params = self._gradient_clipping(self.loss)
-        self.train_op = tf.train.AdamOptimizer().apply_gradients(
-            zip(clipped_gradients, params), global_step=self.global_step)
+        with tf.variable_scope('optimizer'):
+            self.global_step = tf.Variable(0, trainable=False)
+            clipped_gradients, params = self._gradient_clipping(self.loss)
+            self.train_op = tf.train.AdamOptimizer().apply_gradients(
+                zip(clipped_gradients, params), global_step=self.global_step)
 
-        clipped_gradients, params = self._gradient_clipping(self.merged_loss)
-        self.merged_train_op = tf.train.AdamOptimizer().apply_gradients(
-            zip(clipped_gradients, params), global_step=self.global_step)
+            clipped_gradients, params = self._gradient_clipping(self.merged_loss)
+            self.merged_train_op = tf.train.AdamOptimizer().apply_gradients(
+                zip(clipped_gradients, params), global_step=self.global_step)
     
     def _init_summary(self):
         tf.summary.scalar("trans_loss", self.loss)

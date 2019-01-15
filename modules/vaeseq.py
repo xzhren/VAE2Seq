@@ -14,16 +14,30 @@ class VAESEQ:
         self.encoder_model = None
         self.decoder_model = None
         self.transformer_model = None
+        self._build_inputs()
         self._init_models(params)
     
+    def _build_inputs(self):
+        with tf.variable_scope('placeholder'):
+            # placeholders x
+            self.x_enc_inp = tf.placeholder(tf.int32, [None, args.max_len], name="x_enc_inp")
+            self.x_dec_inp = tf.placeholder(tf.int32, [None, args.max_len+1], name="x_dec_inp")
+            self.x_dec_out = tf.placeholder(tf.int32, [None, args.max_len+1], name="x_dec_out")
+            # placeholders y
+            self.y_enc_inp = tf.placeholder(tf.int32, [None, args.max_len], name="y_enc_inp")
+            self.y_dec_inp = tf.placeholder(tf.int32, [None, args.max_len+1], name="y_dec_inp")
+            self.y_dec_out = tf.placeholder(tf.int32, [None, args.max_len+1], name="y_dec_out")
+
     def _init_models(self, params):
         with tf.variable_scope('encodervae'):
-            self.encoder_model = BaseVAE(params, "encoder")
+            encodervae_inputs = (self.x_enc_inp, self.x_dec_inp, self.x_dec_out)
+            self.encoder_model = BaseVAE(params, encodervae_inputs, "encoder")
         with tf.variable_scope('decoderrvae'):
-            self.decoder_model = BaseVAE(params, "decoder")
+            encodervae_inputs = (self.y_enc_inp, self.y_dec_inp, self.y_dec_out)
+            self.decoder_model = BaseVAE(params, encodervae_inputs, "decoder")
         with tf.variable_scope('transformer'):
             self.transformer = Transformer(self.encoder_model, self.decoder_model)
-        with tf.variable_scope('decoderrvae'):
+        with tf.variable_scope('decoderrvae/decoding', reuse=True):
             self.predicted_ids_op = self.decoder_model._decoder_inference(self.transformer.predition)
 
     def train_encoder(self, sess, enc_inp, dec_inp, dec_out):
