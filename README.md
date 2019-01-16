@@ -16,7 +16,13 @@
 ## TODO
   - [x] keep on training
   - [x] record log in file
-  - [ ] trans_loss should be ?
-  - [ ] latent_size is 16, Is it too small ?
+  - [ ] What's the trans_loss should be ?
+  - [ ] The latent_size is 16, is it too small ?
   - [ ] train step save error
   - [x] visual v_mean in tensorboard histom
+  - [x] Big Bug: weights is not successfully reused
+  - [ ] Check parameters reuse
+  - [x] Model-1: merged trans model, loss is MSE
+  - [x] Model-2: merged trans model, loss is seq_loss
+  - [ ] Model-1 vs Model-2
+  - [ ] Model-3: loss function designed

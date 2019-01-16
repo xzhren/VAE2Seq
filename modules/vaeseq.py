@@ -16,6 +16,13 @@ class VAESEQ:
         self.transformer_model = None
         self._build_inputs()
         self._init_models(params)
+        self._loss_optimizer()
+        self.print_parameters()
+
+    def print_parameters(self):
+        print("print_parameters:")
+        for item in tf.global_variables():
+            print('%s: %s' % (item.name, item.get_shape()))
     
     def _build_inputs(self):
         with tf.variable_scope('placeholder'):
@@ -38,7 +45,37 @@ class VAESEQ:
         with tf.variable_scope('transformer'):
             self.transformer = Transformer(self.encoder_model, self.decoder_model)
         with tf.variable_scope('decoderrvae/decoding', reuse=True):
+            self.training_rnn_out, self.training_logits = self.decoder_model._decoder_training(self.transformer.predition, reuse=True)
             self.predicted_ids_op = self.decoder_model._decoder_inference(self.transformer.predition)
+    
+    def _gradient_clipping(self, loss_op):
+        params = tf.trainable_variables()
+        gradients = tf.gradients(loss_op, params)
+        clipped_gradients, _ = tf.clip_by_global_norm(gradients, args.clip_norm)
+        return clipped_gradients, params
+
+    def _loss_optimizer(self):
+        with tf.variable_scope('merge_loss'):
+            mask_fn = lambda l : tf.sequence_mask(l, args.max_dec_len, dtype=tf.float32)
+            dec_seq_len = tf.count_nonzero(self.y_dec_out, 1, dtype=tf.int32)
+            mask = mask_fn(dec_seq_len) # b x t = 64 x ?
+            self.merged_loss_seq =  tf.reduce_sum(tf.contrib.seq2seq.sequence_loss(
+                logits = self.training_logits,
+                targets = self.y_dec_out,
+                weights = mask,
+                average_across_timesteps = False,
+                average_across_batch = True))
+            self.merged_loss = self.merged_loss_seq + self.encoder_model.loss + self.decoder_model.loss
+        with tf.variable_scope('optimizer'):
+            self.global_step = tf.Variable(0, trainable=False)
+            clipped_gradients, params = self._gradient_clipping(self.merged_loss)
+            self.merged_train_op = tf.train.AdamOptimizer().apply_gradients(
+                zip(clipped_gradients, params), global_step=self.global_step)
+        with tf.variable_scope('summary'):
+            tf.summary.scalar("trans_loss", self.merged_loss_seq)
+            tf.summary.scalar("merged_loss", self.merged_loss)
+            tf.summary.histogram("z_predition", self.transformer.predition)
+            self.merged_summary_op = tf.summary.merge_all()
 
     def train_encoder(self, sess, enc_inp, dec_inp, dec_out):
         log = self.encoder_model.train_session(sess, enc_inp, dec_inp, dec_out)
@@ -57,6 +94,22 @@ class VAESEQ:
         log = self.transformer.merged_train_session(sess, self.encoder_model, self.decoder_model,
                 x_enc_inp, x_dec_inp, x_dec_out, y_enc_inp, y_dec_inp, y_dec_out)
         return log
+
+    def merged_seq_train(self, sess, x_enc_inp, x_dec_inp, x_dec_out, y_enc_inp, y_dec_inp, y_dec_out):
+        feed_dict = {
+            self.x_enc_inp: x_enc_inp,
+            self.x_dec_inp: x_dec_inp,
+            self.x_dec_out: x_dec_out,
+            self.y_enc_inp: y_enc_inp,
+            self.y_dec_inp: y_dec_inp,
+            self.y_dec_out: y_dec_out
+        }
+        _, summaries, loss, trans_loss, encoder_loss, decoder_loss, step = sess.run(
+            [self.merged_train_op, self.merged_summary_op, self.merged_loss, self.merged_loss_seq, self.encoder_model.loss, self.decoder_model.loss, self.global_step],
+                feed_dict)
+        return {'summaries': summaries, 'merged_loss': loss, 'trans_loss': trans_loss, 
+            'encoder_loss': encoder_loss, 'decoder_loss': decoder_loss, 'step': step}
+
 
     def show_encoder(self, sess, x, y, LOGGER):
         # self.encoder_model.generate(sess)

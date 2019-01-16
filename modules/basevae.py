@@ -110,11 +110,11 @@ class BaseVAE:
             raise NotImplemented(f'tensor with {len(shape)} dimentions.')
         return tensor
 
-    def _decoder_training(self, z):
+    def _decoder_training(self, z, reuse=False):
         tied_embedding = self.tied_embedding
-        init_state = tf.layers.dense(self.z, args.rnn_size, tf.nn.elu)
+        init_state = tf.layers.dense(self.z, args.rnn_size, tf.nn.elu, name="z_proj_state", reuse=reuse)
         
-        self.decoder_cells = self._rnn_cell()
+        self.decoder_cells = self._rnn_cell(reuse=reuse)
 
         helper = tf.contrib.seq2seq.TrainingHelper(
             inputs = tf.nn.embedding_lookup(tied_embedding, self.dec_inp),
@@ -130,14 +130,14 @@ class BaseVAE:
         logits = self._dynamic_time_pad(decoder_output.rnn_output, args.max_dec_len)
 
         # b x t x h => b x t x v ? # 64,?,200
-        lin_proj = tf.layers.Dense(self.params['vocab_size'], _scope='out_proj_dense')
+        lin_proj = tf.layers.Dense(self.params['vocab_size'], _scope='out_proj_dense', _reuse=reuse)
         logits_dist = lin_proj.apply(logits) 
 
         return logits, logits_dist
 
     def _decoder_inference(self, z):
         tied_embedding = self.tied_embedding
-        init_state = tf.layers.dense(self.z, args.rnn_size, tf.nn.elu, reuse=True)
+        init_state = tf.layers.dense(self.z, args.rnn_size, tf.nn.elu, name="z_proj_state", reuse=True)
         tiled_z = tf.tile(tf.expand_dims(self.z, 1), [1, args.beam_width, 1])
 
         decoder = ModifiedBeamSearchDecoder(
