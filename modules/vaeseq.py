@@ -19,6 +19,7 @@ class VAESEQ:
         self._loss_optimizer()
         self.print_parameters()
 
+
     def print_parameters(self):
         print("print_parameters:")
         for item in tf.global_variables():
@@ -50,8 +51,17 @@ class VAESEQ:
     
     def _gradient_clipping(self, loss_op):
         params = tf.trainable_variables()
+        # print("_gradient_clipping")
+        # print(len(params))
+        # for item in params:
+        #     print('%s: %s' % (item.name, item.get_shape()))
         gradients = tf.gradients(loss_op, params)
         clipped_gradients, _ = tf.clip_by_global_norm(gradients, args.clip_norm)
+        # print(len(clipped_gradients))
+        # print(_)
+        # for item in clipped_gradients[1:]:
+        #     print('%s: %s' % (item.name, item.get_shape()))
+        # print("_gradient_clipping")
         return clipped_gradients, params
 
     def _loss_optimizer(self):
@@ -66,11 +76,13 @@ class VAESEQ:
                 average_across_timesteps = False,
                 average_across_batch = True))
             self.merged_loss = self.merged_loss_seq + self.encoder_model.loss + self.decoder_model.loss
+            # self.merged_loss = self.encoder_model.loss
         with tf.variable_scope('optimizer'):
             self.global_step = tf.Variable(0, trainable=False)
             clipped_gradients, params = self._gradient_clipping(self.merged_loss)
             self.merged_train_op = tf.train.AdamOptimizer().apply_gradients(
                 zip(clipped_gradients, params), global_step=self.global_step)
+            # self.merged_train_op = tf.train.AdamOptimizer(self.merged_loss)
         with tf.variable_scope('summary'):
             tf.summary.scalar("trans_loss", self.merged_loss_seq)
             tf.summary.scalar("merged_loss", self.merged_loss)
@@ -138,10 +150,21 @@ class VAESEQ:
     def evaluation_decoder_vae(self, sess, enc_inp, outputfile):
         self.decoder_model.evaluation(sess, enc_inp, outputfile)
     
+    # def evaluation(self, sess, enc_inp, outputfile):
+    #     idx2word = self.params['idx2word']
+    #     batch_size, predicted_decoder_z = sess.run([self.encoder_model._batch_size, self.transformer.predition], {self.encoder_model.enc_inp:enc_inp})
+    #     predicted_ids_lt = sess.run(self.decoder_model.predicted_ids, 
+    #         {self.decoder_model._batch_size: batch_size, self.decoder_model.z: predicted_decoder_z,
+    #             self.decoder_model.enc_seq_len: [args.max_len]})
+    #     for predicted_ids in predicted_ids_lt:
+    #         with open(outputfile, "a") as f:
+    #             f.write('%s\n' % ' '.join([idx2word[idx] for idx in predicted_ids]))
+
     def evaluation(self, sess, enc_inp, outputfile):
         idx2word = self.params['idx2word']
         batch_size, predicted_decoder_z = sess.run([self.encoder_model._batch_size, self.transformer.predition], {self.encoder_model.enc_inp:enc_inp})
-        predicted_ids_lt = sess.run(self.decoder_model.predicted_ids, 
+        # predicted_ids_lt = sess.run(self.decoder_model.predicted_ids, 
+        predicted_ids_lt = sess.run(self.predicted_ids_op, 
             {self.decoder_model._batch_size: batch_size, self.decoder_model.z: predicted_decoder_z,
                 self.decoder_model.enc_seq_len: [args.max_len]})
         for predicted_ids in predicted_ids_lt:

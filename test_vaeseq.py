@@ -10,19 +10,23 @@ from config import args
 from measures import evaluation_utils
 
 import os
-os.environ["CUDA_VISIBLE_DEVICES"] = "0"
+os.environ["CUDA_VISIBLE_DEVICES"] = "2"
 
 def main():
     ## Parameters
     args.max_len = 150
     args.batch_size = 64
-    args.max_dec_len = 151
+    args.max_dec_len = args.max_len+1
+    args.vocab_limit = 35000
     # args.display_info_step = 10000
+    
+    args.rnn_size = 256
+    args.latent_size = 256
     print(args)
     exp_path = "./saved/vaeseq_trans/"
 
     ## DataLoader
-    dataloader = REDDIT(batch_size=64, vocab_limit=35000, max_input_len=150, max_output_len=150)
+    dataloader = REDDIT(batch_size=args.batch_size, vocab_limit=args.vocab_limit, max_input_len=args.max_len, max_output_len=args.max_len)
     params = {
         'vocab_size': len(dataloader.word2idx),
         'word2idx': dataloader.word2idx,
