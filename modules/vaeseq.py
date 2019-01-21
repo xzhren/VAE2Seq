@@ -162,11 +162,21 @@ class VAESEQ:
 
     def evaluation(self, sess, enc_inp, outputfile):
         idx2word = self.params['idx2word']
-        batch_size, predicted_decoder_z = sess.run([self.encoder_model._batch_size, self.transformer.predition], {self.encoder_model.enc_inp:enc_inp})
-        # predicted_ids_lt = sess.run(self.decoder_model.predicted_ids, 
+        #### method - I
+        batch_size, trans_input = sess.run([self.encoder_model._batch_size, self.encoder_model.z], {self.x_enc_inp:enc_inp})
+        predicted_decoder_z = sess.run(self.transformer.predition, {self.transformer.input:trans_input})
+        # print("========================")
+        # print(trans_input)
+        # print("------------------------")
+        # print(predicted_decoder_z)
+        # print("========================")
         predicted_ids_lt = sess.run(self.predicted_ids_op, 
             {self.decoder_model._batch_size: batch_size, self.decoder_model.z: predicted_decoder_z,
                 self.decoder_model.enc_seq_len: [args.max_len]})
+        #### method - II
+        # batch_size = sess.run(self.encoder_model._batch_size, {self.x_enc_inp:enc_inp})
+        # predicted_ids_lt = sess.run(self.predicted_ids_op, 
+        #     {self.decoder_model._batch_size: batch_size, self.x_enc_inp: enc_inp, self.y_enc_inp: enc_inp, self.decoder_model.enc_seq_len: [args.max_len]})
         for predicted_ids in predicted_ids_lt:
             with open(outputfile, "a") as f:
                 f.write('%s\n' % ' '.join([idx2word[idx] for idx in predicted_ids]))

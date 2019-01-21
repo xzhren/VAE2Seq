@@ -43,15 +43,15 @@ class Transformer:
             self.loss = tf.losses.mean_squared_error(self.predition, self.output)
             self.merged_loss = self.loss*1000 + encoder_loss + decoder_loss
         
-        with tf.variable_scope('optimizer'):
-            self.global_step = tf.Variable(0, trainable=False)
-            clipped_gradients, params = self._gradient_clipping(self.loss)
-            self.train_op = tf.train.AdamOptimizer().apply_gradients(
-                zip(clipped_gradients, params), global_step=self.global_step)
+        # with tf.variable_scope('optimizer'):
+        #     self.global_step = tf.Variable(0, trainable=False)
+        #     clipped_gradients, params = self._gradient_clipping(self.loss)
+        #     self.train_op = tf.train.AdamOptimizer().apply_gradients(
+        #         zip(clipped_gradients, params), global_step=self.global_step)
 
-            clipped_gradients, params = self._gradient_clipping(self.merged_loss)
-            self.merged_train_op = tf.train.AdamOptimizer().apply_gradients(
-                zip(clipped_gradients, params), global_step=self.global_step)
+        #     clipped_gradients, params = self._gradient_clipping(self.merged_loss)
+        #     self.merged_train_op = tf.train.AdamOptimizer().apply_gradients(
+        #         zip(clipped_gradients, params), global_step=self.global_step)
     
     def _init_summary(self):
         with tf.variable_scope('summary'):

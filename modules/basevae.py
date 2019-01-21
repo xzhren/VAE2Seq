@@ -38,10 +38,10 @@ class BaseVAE:
             loss_op = self.nll_loss + self.kl_w * self.kl_loss
             self.loss = loss_op
         
-        with tf.variable_scope('optimizer'):
-            clipped_gradients, params = self._gradient_clipping(loss_op)
-            self.train_op = tf.train.AdamOptimizer().apply_gradients(
-                zip(clipped_gradients, params), global_step=self.global_step)
+        # with tf.variable_scope('optimizer'):
+        #     clipped_gradients, params = self._gradient_clipping(loss_op)
+        #     self.train_op = tf.train.AdamOptimizer().apply_gradients(
+        #         zip(clipped_gradients, params), global_step=self.global_step)
 
     def _init_summary(self, prefix):
         with tf.variable_scope('summary'):

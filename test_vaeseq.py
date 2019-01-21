@@ -10,7 +10,7 @@ from config import args
 from measures import evaluation_utils
 
 import os
-os.environ["CUDA_VISIBLE_DEVICES"] = "2"
+os.environ["CUDA_VISIBLE_DEVICES"] = "1"
 
 def main():
     ## Parameters
@@ -19,7 +19,7 @@ def main():
     args.max_dec_len = args.max_len+1
     args.vocab_limit = 35000
     # args.display_info_step = 10000
-    
+
     args.rnn_size = 256
     args.latent_size = 256
     print(args)
@@ -50,7 +50,7 @@ def main():
     # Parpear Dir
     ref_file = exp_path+"test.input.txt"
     trans_file = exp_path+"test.output.txt"
-    result_file = exp_path+"test.result.txt"
+    result_file = exp_path+"test."+restore_path.split("-")[-1]+".result.txt"
     test_file = "./corpus/reddit/test.txt"
 
     # Test Dir

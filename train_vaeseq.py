@@ -16,7 +16,7 @@ os.environ["CUDA_VISIBLE_DEVICES"] = "2"
 def main():
     ## Parameters
     args.max_len = 150
-    args.batch_size = 64
+    args.batch_size = 32
     args.max_dec_len = args.max_len+1
     args.display_info_step = 1000
     args.vocab_limit = 35000
@@ -97,7 +97,8 @@ def main():
                 print("Model saved in file: %s" % save_path)
                 model.show_encoder(sess, x_enc_inp[-1], x_dec_inp[-1], LOGGER)
                 model.show_decoder(sess, y_enc_inp[-1], y_dec_inp[-1], LOGGER)
-                model.show_sample(sess, x_enc_inp[-1], y_dec_out[-1], LOGGER)
+                for i in range(3):
+                    model.show_sample(sess, x_enc_inp[i], y_dec_out[i], LOGGER)
                 LOGGER.flush()
                 
         save_path = saver.save(sess, exp_path+model_name, global_step=train_step)
