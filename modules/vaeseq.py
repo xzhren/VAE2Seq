@@ -163,8 +163,11 @@ class VAESEQ:
     def evaluation(self, sess, enc_inp, outputfile):
         idx2word = self.params['idx2word']
         #### method - I
-        batch_size, trans_input = sess.run([self.encoder_model._batch_size, self.encoder_model.z], {self.x_enc_inp:enc_inp})
-        predicted_decoder_z = sess.run(self.transformer.predition, {self.transformer.input:trans_input})
+        # batch_size, trans_input = sess.run([self.encoder_model._batch_size, self.encoder_model.z], {self.x_enc_inp:enc_inp})
+        # predicted_decoder_z = sess.run(self.transformer.predition, {self.transformer.input:trans_input})
+        #### method - I.2.0
+        batch_size, trans_input_mean, trans_input_logvar = sess.run([self.encoder_model._batch_size, self.encoder_model.z_mean, self.encoder_model.z_logvar], {self.x_enc_inp:enc_inp})
+        predicted_decoder_z = sess.run(self.transformer.predition, {self.transformer.input_mean:trans_input_mean, self.transformer.input_logvar:trans_input_logvar})
         # print("========================")
         # print(trans_input)
         # print("------------------------")

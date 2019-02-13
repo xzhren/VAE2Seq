@@ -6,9 +6,11 @@ from data.data_reddit import PAD_TOKEN
 
 class Transformer:
     def __init__(self, encoder, decoder):
-        # self.input = encoder.z_mean
-        # self.output = decoder.z_mean
-        self.input = encoder.z
+        self.input_mean = encoder.z_mean
+        self.output_mean = decoder.z_mean
+        self.input_logvar = encoder.z_logvar
+        self.output_logvar = decoder.z_logvar
+        # self.input = encoder.z
         self.output = decoder.z
 
         self.encoder_class_num = 300
@@ -24,24 +26,30 @@ class Transformer:
             trans_encoder_embedding = tf.get_variable('trans_encoder_embedding',
                 [self.encoder_class_num, args.latent_size],
                 tf.float32)
-            input_dist = tf.matmul(self.input, trans_encoder_embedding, transpose_b=True) # b x encoder_class_num
-            input_dist = tf.nn.softmax(input_dist)
+            input_dist_mean = tf.nn.softmax(tf.matmul(self.input_mean, trans_encoder_embedding, transpose_b=True)) # b x encoder_class_num
+            input_dist_logvar = tf.nn.softmax(tf.matmul(self.input_logvar, trans_encoder_embedding, transpose_b=True)) # b x encoder_class_num
         with tf.variable_scope('trans'):
             trans_w = tf.get_variable('trans_w', [self.encoder_class_num, self.decoder_class_num], tf.float32)
-            input_dist = tf.matmul(input_dist, trans_w) # b x decoder_class_num
-            input_dist = tf.nn.softmax(input_dist)
+            input_dist_mean = tf.nn.softmax(tf.matmul(input_dist_mean, trans_w)) # b x decoder_class_num
+            input_dist_logvar = tf.nn.softmax(tf.matmul(input_dist_logvar, trans_w)) # b x decoder_class_num
         with tf.variable_scope('trans_decoder'):
             trans_decoder_embedding = tf.get_variable('trans_decoder_embedding',
                 [self.decoder_class_num, args.latent_size],
                 tf.float32)
-            self.predition = tf.matmul(input_dist, trans_decoder_embedding) # b x l
-        print("trans, input:", self.input)
-        print("trans, predition:", self.predition)
+            self.predition_mean = tf.matmul(input_dist_mean, trans_decoder_embedding) # b x l
+            self.predition_logvar = tf.matmul(input_dist_logvar, trans_decoder_embedding) # b x l
+            self.predition = self.predition_mean + tf.exp(0.5 * self.predition_logvar) * tf.truncated_normal(tf.shape(self.predition_logvar))
+        # print("trans, input:", self.input)
+        # print("trans, predition_mean:", self.predition_mean)
+        # print("trans, predition_logvar:", self.predition_logvar)
+        # print("trans, predition:", self.predition)
         # with tf.variable_scope('mlp'):
         #     self.predition = tf.layers.dense(self.input, args.latent_size)
         with tf.variable_scope('loss'):
+            self.loss_mean = tf.losses.mean_squared_error(self.predition_mean, self.output_mean)
+            self.loss_logvar = tf.losses.mean_squared_error(self.predition_logvar, self.output_logvar)
             self.loss = tf.losses.mean_squared_error(self.predition, self.output)
-            self.merged_loss = self.loss*1000 + encoder_loss + decoder_loss
+            self.merged_loss = (self.loss_mean+self.loss_logvar+self.loss)*1000 + encoder_loss + decoder_loss
         
         # with tf.variable_scope('optimizer'):
         #     self.global_step = tf.Variable(0, trainable=False)
@@ -56,6 +64,8 @@ class Transformer:
     def _init_summary(self):
         with tf.variable_scope('summary'):
             tf.summary.scalar("trans_loss", self.loss)
+            tf.summary.scalar("trans_loss_mean", self.loss_mean)
+            tf.summary.scalar("trans_loss_logvar", self.loss_logvar)
             tf.summary.scalar("merged_loss", self.merged_loss)
             tf.summary.histogram("z_predition", self.predition)
             self.merged_summary_op = tf.summary.merge_all()
