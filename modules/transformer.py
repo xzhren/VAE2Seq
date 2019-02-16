@@ -3,6 +3,7 @@ import numpy as np
 
 from config import args
 from data.data_reddit import PAD_TOKEN
+from modules.wasserstein_utils import wasserstein_loss
 
 class Transformer:
     def __init__(self, encoder, decoder):
@@ -50,6 +51,7 @@ class Transformer:
             self.loss_logvar = tf.losses.mean_squared_error(self.predition_logvar, self.output_logvar)
             self.loss = tf.losses.mean_squared_error(self.predition, self.output)
             self.merged_loss = (self.loss_mean+self.loss_logvar+self.loss)*1000 + encoder_loss + decoder_loss
+            self.wasserstein_loss = wasserstein_loss(self.predition, self.output)
         
         # with tf.variable_scope('optimizer'):
         #     self.global_step = tf.Variable(0, trainable=False)
@@ -67,6 +69,7 @@ class Transformer:
             tf.summary.scalar("trans_loss_mean", self.loss_mean)
             tf.summary.scalar("trans_loss_logvar", self.loss_logvar)
             tf.summary.scalar("merged_loss", self.merged_loss)
+            tf.summary.scalar("wasserstein_loss", self.wasserstein_loss)
             tf.summary.histogram("z_predition", self.predition)
             self.merged_summary_op = tf.summary.merge_all()
         

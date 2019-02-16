@@ -24,7 +24,7 @@ def main():
     args.rnn_size = 256
     args.latent_size = 256
     print(args)
-    exp_path = "./saved/vaeseq_trans/"
+    exp_path = "./saved/vaeseq_trans_wasserstein/"
     model_name = "vrae.ckpt"
     train_data_len = 3384185
     train_data_path = "./corpus/reddit/train.txt"
@@ -95,8 +95,11 @@ def main():
             if step % args.display_info_step == 0 and step != 0:
                 save_path = saver.save(sess, exp_path+model_name, global_step=train_step)
                 print("Model saved in file: %s" % save_path)
+                print("============= Show Encoder ===============")
                 model.show_encoder(sess, x_enc_inp[-1], x_dec_inp[-1], LOGGER)
+                print("============= Show Decoder ===============")
                 model.show_decoder(sess, y_enc_inp[-1], y_dec_inp[-1], LOGGER)
+                print("============= Show Sample ===============")
                 for i in range(3):
                     model.show_sample(sess, x_enc_inp[i], y_dec_out[i], LOGGER)
                 LOGGER.flush()
