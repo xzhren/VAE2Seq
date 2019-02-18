@@ -44,7 +44,14 @@ def main():
     LOGGER = open(log_path, "a")
 
     ## Session
-    saver = tf.train.Saver()
+    # load some parameters
+    variables = tf.contrib.framework.get_variables_to_restore()
+    variables_to_resotre = [v for v in variables if not v.name.startswith("optimizer/transformer/trans_mlp/")]
+    # for v in variables_to_resotre:
+    #     print(type(v.name), v.name)
+    print(len(variables), len(variables_to_resotre))
+    # end load
+    saver = tf.train.Saver(variables_to_resotre)
     config = tf.ConfigProto(allow_soft_placement=True)
     config.gpu_options.allow_growth=True
     sess = tf.Session(config=config)
@@ -57,6 +64,7 @@ def main():
     if restore_path:
         keep_on_train_flag = True
         saver.restore(sess, restore_path)
+        saver = tf.train.Saver() # new saver
         last_train_step = int(restore_path.split("-")[-1]) % EPOCH_STEPS
         print("Model restore from file: %s, last train step: %d" % (restore_path, last_train_step))
         LOGGER.write("Model restore from file: %s, last train step: %d\n" % (restore_path, last_train_step))
