@@ -24,7 +24,7 @@ def main():
     args.rnn_size = 256
     args.latent_size = 256
     print(args)
-    exp_path = "./saved/vaeseq_trans_wasserstein/"
+    exp_path = "./saved/vaeseq_trans_wasserstein_mlptrans/"
     model_name = "vrae.ckpt"
     train_data_len = 3384185
     train_data_path = "./corpus/reddit/train.txt"

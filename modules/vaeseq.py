@@ -77,7 +77,8 @@ class VAESEQ:
                 average_across_batch = True))
             # self.merged_loss = self.merged_loss_seq + self.encoder_model.loss + self.decoder_model.loss
             self.merged_loss = self.transformer.wasserstein_loss*1000 + self.encoder_model.loss + self.decoder_model.loss
-            # self.merged_loss = self.encoder_model.loss
+            # self.merged_loss = self.transformer.loss_mean*1000 + self.encoder_model.loss + self.decoder_model.loss
+            
         with tf.variable_scope('optimizer'):
             self.global_step = tf.Variable(0, trainable=False)
             clipped_gradients, params = self._gradient_clipping(self.merged_loss)

@@ -23,7 +23,7 @@ def main():
     args.rnn_size = 256
     args.latent_size = 256
     print(args)
-    exp_path = "./saved/vaeseq_trans/"
+    exp_path = "./saved/vaeseq_trans_wasserstein_mlptrans/"
 
     ## DataLoader
     dataloader = REDDIT(batch_size=args.batch_size, vocab_limit=args.vocab_limit, max_input_len=args.max_len, max_output_len=args.max_len)
