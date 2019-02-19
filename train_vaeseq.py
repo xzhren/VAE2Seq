@@ -24,7 +24,7 @@ def main():
     args.rnn_size = 256
     args.latent_size = 256
     print(args)
-    exp_path = "./saved/vaeseq_trans_wasserstein_mlptrans/"
+    exp_path = "./saved/vaeseq_0220/"
     model_name = "vrae.ckpt"
     train_data_len = 3384185
     train_data_path = "./corpus/reddit/train.txt"
@@ -46,12 +46,13 @@ def main():
     ## Session
     # load some parameters
     variables = tf.contrib.framework.get_variables_to_restore()
-    variables_to_resotre = [v for v in variables if not v.name.startswith("optimizer/transformer/trans_mlp/")]
+    print(len(variables), end=",")
+    # variables = [v for v in variables if not v.name.startswith("optimizer/transformer/trans_mlp/")]
     # for v in variables_to_resotre:
     #     print(type(v.name), v.name)
-    print(len(variables), len(variables_to_resotre))
+    print(len(variables))
     # end load
-    saver = tf.train.Saver(variables_to_resotre)
+    saver = tf.train.Saver(variables)
     config = tf.ConfigProto(allow_soft_placement=True)
     config.gpu_options.allow_growth=True
     sess = tf.Session(config=config)

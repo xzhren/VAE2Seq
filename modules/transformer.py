@@ -17,8 +17,8 @@ class Transformer:
         self.encoder_class_num = 300
         self.decoder_class_num = 300
 
-        # self._build_graph(encoder.loss, decoder.loss)
-        self._build_graph_mlp(encoder.loss, decoder.loss)
+        self._build_graph(encoder.loss, decoder.loss)
+        # self._build_graph_mlp(encoder.loss, decoder.loss)
         self._init_summary()
 
     def _build_graph(self, encoder_loss, decoder_loss):
@@ -28,18 +28,25 @@ class Transformer:
             trans_encoder_embedding = tf.get_variable('trans_encoder_embedding',
                 [self.encoder_class_num, args.latent_size],
                 tf.float32)
+            trans_encoder_embedding_var = tf.get_variable('trans_encoder_embedding_var',
+                [self.encoder_class_num, args.latent_size],
+                tf.float32)
             input_dist_mean = tf.nn.softmax(tf.matmul(self.input_mean, trans_encoder_embedding, transpose_b=True)) # b x encoder_class_num
-            input_dist_logvar = tf.nn.softmax(tf.matmul(self.input_logvar, trans_encoder_embedding, transpose_b=True)) # b x encoder_class_num
+            input_dist_logvar = tf.nn.softmax(tf.matmul(self.input_logvar, trans_encoder_embedding_var, transpose_b=True)) # b x encoder_class_num
         with tf.variable_scope('trans'):
             trans_w = tf.get_variable('trans_w', [self.encoder_class_num, self.decoder_class_num], tf.float32)
+            trans_w_var = tf.get_variable('trans_w_var', [self.encoder_class_num, self.decoder_class_num], tf.float32)
             input_dist_mean = tf.nn.softmax(tf.matmul(input_dist_mean, trans_w)) # b x decoder_class_num
-            input_dist_logvar = tf.nn.softmax(tf.matmul(input_dist_logvar, trans_w)) # b x decoder_class_num
+            input_dist_logvar = tf.nn.softmax(tf.matmul(input_dist_logvar, trans_w_var)) # b x decoder_class_num
         with tf.variable_scope('trans_decoder'):
             trans_decoder_embedding = tf.get_variable('trans_decoder_embedding',
                 [self.decoder_class_num, args.latent_size],
                 tf.float32)
+            trans_decoder_embedding_var = tf.get_variable('trans_decoder_embedding_var',
+                [self.decoder_class_num, args.latent_size],
+                tf.float32)
             self.predition_mean = tf.matmul(input_dist_mean, trans_decoder_embedding) # b x l
-            self.predition_logvar = tf.matmul(input_dist_logvar, trans_decoder_embedding) # b x l
+            self.predition_logvar = tf.matmul(input_dist_logvar, trans_decoder_embedding_var) # b x l
             self.predition = self.predition_mean + tf.exp(0.5 * self.predition_logvar) * tf.truncated_normal(tf.shape(self.predition_logvar))
         # print("trans, input:", self.input)
         # print("trans, predition_mean:", self.predition_mean)
