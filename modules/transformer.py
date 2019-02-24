@@ -59,6 +59,7 @@ class Transformer:
             self.loss_logvar = tf.losses.mean_squared_error(self.predition_logvar, self.output_logvar)
             self.loss = tf.losses.mean_squared_error(self.predition, self.output)
             self.merged_loss = (self.loss_mean+self.loss_logvar+self.loss)*1000 + encoder_loss + decoder_loss
+            self.merged_mse = (self.loss_mean+self.loss_logvar+self.loss)
             self.wasserstein_loss = wasserstein_loss(self.predition, self.output)
         
         # with tf.variable_scope('optimizer'):

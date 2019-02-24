@@ -23,7 +23,7 @@ def main():
     args.rnn_size = 256
     args.latent_size = 256
     print(args)
-    exp_path = "./saved/vaeseq_trans_wasserstein_mlptrans/"
+    exp_path = "./saved/vaeseq_0220/"
 
     ## DataLoader
     dataloader = REDDIT(batch_size=args.batch_size, vocab_limit=args.vocab_limit, max_input_len=args.max_len, max_output_len=args.max_len)
@@ -79,7 +79,12 @@ def main():
             trans_file,
             metric)
         eval_log[metric] = score
-        print("  %s: %.1f" % (metric, score))
+        if metric == "bleu":
+            print("  bleu-1, bleu-2, bleu-3, bleu-4: %.5f,  %.5f,  %.5f,  %.5f" % score)
+        elif metric == "rouge":
+            print("  rouge-1, rouge-2, rouge-l: %.5f,  %.5f,  %.5f" % score)
+        else:
+            print("  %s: %.5f" % (metric, score))
 
     # Record Log
     dataloader.record_result(eval_log, finpath=test_file, frespaht=trans_file, foutpath=result_file)

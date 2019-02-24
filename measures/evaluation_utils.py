@@ -91,9 +91,15 @@ def _bleu(ref_file, trans_file, subword_option=None):
       translations.append(line.split(" "))
 
   # bleu_score, precisions, bp, ratio, translation_length, reference_length
-  bleu_score, _, _, _, _, _ = bleu.compute_bleu(
-      per_segment_references, translations, max_order, smooth)
-  return 100 * bleu_score
+  bleu_score_1, _, _, _, _, _ = bleu.compute_bleu(
+      per_segment_references, translations, 1, smooth)
+  bleu_score_2, _, _, _, _, _ = bleu.compute_bleu(
+      per_segment_references, translations, 2, smooth)
+  bleu_score_3, _, _, _, _, _ = bleu.compute_bleu(
+      per_segment_references, translations, 3, smooth)
+  bleu_score_4, _, _, _, _, _ = bleu.compute_bleu(
+      per_segment_references, translations, 4, smooth)
+  return 100 * bleu_score_1, 100 * bleu_score_2, 100 * bleu_score_3, 100 * bleu_score_4
 
 
 def _rouge(ref_file, summarization_file, subword_option=None):
@@ -111,7 +117,7 @@ def _rouge(ref_file, summarization_file, subword_option=None):
       hypotheses.append(_clean(line, subword_option=None))
 
   rouge_score_map = rouge.rouge(hypotheses, references)
-  return 100 * rouge_score_map["rouge_l/f_score"]
+  return 100 * rouge_score_map["rouge_1/f_score"], 100 * rouge_score_map["rouge_2/f_score"], 100 * rouge_score_map["rouge_l/f_score"]
 
 
 def _accuracy(label_file, pred_file):
