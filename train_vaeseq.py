@@ -3,6 +3,7 @@ from __future__ import print_function
 import json
 import tensorflow as tf
 from tqdm import tqdm
+import os
 
 from data.data_reddit import REDDIT
 from modules.vaeseq import VAESEQ
@@ -10,32 +11,28 @@ from utils.train_utils import show_loss
 from utils.train_utils import summary_flush
 from config import args
 
-import os
-os.environ["CUDA_VISIBLE_DEVICES"] = "2"
-
 def main():
-    ## Parameters
-    args.max_len = 150
-    args.batch_size = 32
-    args.max_dec_len = args.max_len+1
-    args.display_info_step = 1000
-    args.vocab_limit = 35000
+    ## CUDA
+    os.environ["CUDA_VISIBLE_DEVICES"] = str(args.cuda)
 
-    args.rnn_size = 256
-    args.latent_size = 256
-    print(args)
-    exp_path = "./saved/vaeseq_0220/"
-    model_name = "vrae.ckpt"
+    ## Parameters
+    args.max_dec_len = args.max_len+1
+    exp_path = "./saved/"+args.exp+"/"
+    if not os.path.exists(exp_path):
+        os.makedirs(exp_path)
+    model_name = args.model_name
     train_data_len = 3384185
-    train_data_path = "./corpus/reddit/train.txt"
+    train_data_path = args.train_data
     EPOCH_STEPS = (train_data_len-1)//args.batch_size+1
+    print(args)
 
     ## DataLoader
     dataloader = REDDIT(batch_size=args.batch_size, vocab_limit=args.vocab_limit, max_input_len=args.max_len, max_output_len=args.max_len)
     params = {
         'vocab_size': len(dataloader.word2idx),
         'word2idx': dataloader.word2idx,
-        'idx2word': dataloader.idx2word,}
+        'idx2word': dataloader.idx2word,
+        'loss_type': args.loss_type}
     print('Vocab Size:', params['vocab_size'])
 
     ## ModelInit    
@@ -46,7 +43,7 @@ def main():
     ## Session
     # load some parameters
     variables = tf.contrib.framework.get_variables_to_restore()
-    print(len(variables), end=",")
+    # print(len(variables), end=",")
     # variables = [v for v in variables if not v.name.startswith("optimizer/transformer/trans_mlp/")]
     # for v in variables_to_resotre:
     #     print(type(v.name), v.name)

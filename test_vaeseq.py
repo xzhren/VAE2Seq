@@ -10,27 +10,24 @@ from config import args
 from measures import evaluation_utils
 
 import os
-os.environ["CUDA_VISIBLE_DEVICES"] = "1"
+# os.environ["CUDA_VISIBLE_DEVICES"] = "1"
 
 def main():
-    ## Parameters
-    args.max_len = 150
-    args.batch_size = 64
-    args.max_dec_len = args.max_len+1
-    args.vocab_limit = 35000
-    # args.display_info_step = 10000
+    ## CUDA
+    os.environ["CUDA_VISIBLE_DEVICES"] = str(args.cuda)
 
-    args.rnn_size = 256
-    args.latent_size = 256
+    ## Parameters
+    args.max_dec_len = args.max_len+1
+    exp_path = "./saved/"+args.exp+"/"
     print(args)
-    exp_path = "./saved/vaeseq_0220/"
 
     ## DataLoader
     dataloader = REDDIT(batch_size=args.batch_size, vocab_limit=args.vocab_limit, max_input_len=args.max_len, max_output_len=args.max_len)
     params = {
         'vocab_size': len(dataloader.word2idx),
         'word2idx': dataloader.word2idx,
-        'idx2word': dataloader.idx2word,}
+        'idx2word': dataloader.idx2word,
+        'loss_type': args.loss_type}
     print('Vocab Size:', params['vocab_size'])
 
     ## ModelInit    
@@ -85,6 +82,14 @@ def main():
             print("  rouge-1, rouge-2, rouge-l: %.5f,  %.5f,  %.5f" % score)
         else:
             print("  %s: %.5f" % (metric, score))
+    
+    from measures import selfbleu
+    selfbleuobj = selfbleu.SelfBleu(trans_file, 1)
+    print("selfbleu-1", selfbleuobj.get_score())
+    eval_log['selfbleu-1'] = selfbleuobj.get_score()
+    selfbleuobj = selfbleu.SelfBleu(trans_file, 2)
+    print("selfbleu-2", selfbleuobj.get_score())
+    eval_log['selfbleu-2'] = selfbleuobj.get_score()
 
     # Record Log
     dataloader.record_result(eval_log, finpath=test_file, frespaht=trans_file, foutpath=result_file)

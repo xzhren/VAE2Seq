@@ -16,7 +16,7 @@ class VAESEQ:
         self.transformer_model = None
         self._build_inputs()
         self._init_models(params)
-        self._loss_optimizer()
+        self._loss_optimizer(params['loss_type'])
         self.print_parameters()
 
 
@@ -64,7 +64,7 @@ class VAESEQ:
         # print("_gradient_clipping")
         return clipped_gradients, params
 
-    def _loss_optimizer(self):
+    def _loss_optimizer(self, model_type):
         with tf.variable_scope('merge_loss'):
             mask_fn = lambda l : tf.sequence_mask(l, args.max_dec_len, dtype=tf.float32)
             dec_seq_len = tf.count_nonzero(self.y_dec_out, 1, dtype=tf.int32)
@@ -75,10 +75,13 @@ class VAESEQ:
                 weights = mask,
                 average_across_timesteps = False,
                 average_across_batch = True))
-            # self.merged_loss = self.merged_loss_seq + self.encoder_model.loss + self.decoder_model.loss
-            # self.merged_loss = self.transformer.wasserstein_loss*1000 + self.encoder_model.loss + self.decoder_model.loss
-            self.merged_loss = self.transformer.merged_mse*1000 + self.encoder_model.loss + self.decoder_model.loss
-            
+            if model_type == 0:
+                self.merged_loss = self.transformer.merged_mse*1000 + self.encoder_model.loss + self.decoder_model.loss
+            elif model_type == 1:
+                self.merged_loss = self.transformer.wasserstein_loss*1000 + self.encoder_model.loss + self.decoder_model.loss
+            elif model_type == 2:
+                self.merged_loss = self.merged_loss_seq + self.encoder_model.loss + self.decoder_model.loss
+
         with tf.variable_scope('optimizer'):
             self.global_step = tf.Variable(0, trainable=False)
             clipped_gradients, params = self._gradient_clipping(self.merged_loss)
