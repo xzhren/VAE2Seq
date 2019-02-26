@@ -17,6 +17,8 @@ def main():
     os.environ["CUDA_VISIBLE_DEVICES"] = str(args.cuda)
 
     ## Parameters
+    if args.exp == "NONE":
+        args.exp = args.graph_type
     args.max_dec_len = args.max_len+1
     exp_path = "./saved/"+args.exp+"/"
     print(args)
@@ -27,7 +29,8 @@ def main():
         'vocab_size': len(dataloader.word2idx),
         'word2idx': dataloader.word2idx,
         'idx2word': dataloader.idx2word,
-        'loss_type': args.loss_type}
+        'loss_type': args.loss_type,
+        'graph_type': args.graph_type}
     print('Vocab Size:', params['vocab_size'])
 
     ## ModelInit    
@@ -37,36 +40,36 @@ def main():
     saver = tf.train.Saver()
     config = tf.ConfigProto(allow_soft_placement=True)
     config.gpu_options.allow_growth=True
-    sess = tf.Session(config=config)
-    sess.run(tf.global_variables_initializer())
+    with tf.Session(config=config) as sess:
+        sess.run(tf.global_variables_initializer())
 
-    restore_path = tf.train.latest_checkpoint(exp_path)
-    saver.restore(sess, restore_path)
-    print("Model restore from file: %s" % (restore_path))
+        restore_path = tf.train.latest_checkpoint(exp_path)
+        saver.restore(sess, restore_path)
+        print("Model restore from file: %s" % (restore_path))
         
-    # Parpear Dir
-    ref_file = exp_path+"test.input.txt"
-    trans_file = exp_path+"test.output.txt"
-    result_file = exp_path+"test."+restore_path.split("-")[-1]+".result.txt"
-    test_file = "./corpus/reddit/test.txt"
+        # Parpear Dir
+        ref_file = exp_path+"test.input.txt"
+        trans_file = exp_path+"test.output.txt"
+        result_file = exp_path+"test."+restore_path.split("-")[-1]+".result.txt"
+        test_file = "./corpus/reddit/test.txt"
 
-    # Test Dir
-    dataloader.trans_in_ref(finpath=test_file, foutpath=ref_file)
-    with open(trans_file, "w") as f:
-        f.write("")
-    print("[PAEPEAR DATASET]")
+        # Test Dir
+        dataloader.trans_in_ref(finpath=test_file, foutpath=ref_file)
+        with open(trans_file, "w") as f:
+            f.write("")
+        print("[PAEPEAR DATASET]")
 
-    # Test DataSet
-    test_len = 20000
-    batcher = dataloader.load_data(fpath=test_file)
-    for _ in tqdm(range((test_len-1)//args.batch_size+1)):
-        try:
-            enc_inp, _, _, _, _, _ = next(batcher)
-            # dec_inp = dataloader.update_word_dropout(dec_inp_full)
-        except StopIteration:
-            print("there are no more examples")
-            break
-        model.evaluation(sess, enc_inp, trans_file)
+        # Test DataSet
+        test_len = 20000
+        batcher = dataloader.load_data(fpath=test_file)
+        for _ in tqdm(range((test_len-1)//args.batch_size+1)):
+            try:
+                enc_inp, _, _, _, _, _ = next(batcher)
+                # dec_inp = dataloader.update_word_dropout(dec_inp_full)
+            except StopIteration:
+                print("there are no more examples")
+                break
+            model.evaluation(sess, enc_inp, trans_file)
 
     # Evaluation
     eval_log = {}

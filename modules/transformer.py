@@ -4,9 +4,10 @@ import numpy as np
 from config import args
 from data.data_reddit import PAD_TOKEN
 from modules.wasserstein_utils import wasserstein_loss
+from modules.transformer_utils import *
 
 class Transformer:
-    def __init__(self, encoder, decoder):
+    def __init__(self, encoder, decoder, graph_type):
         self.input_mean = encoder.z_mean
         self.output_mean = decoder.z_mean
         self.input_logvar = encoder.z_logvar
@@ -17,92 +18,40 @@ class Transformer:
         self.encoder_class_num = 300
         self.decoder_class_num = 300
 
-        self._build_graph(encoder.loss, decoder.loss)
-        # self._build_graph_mlp(encoder.loss, decoder.loss)
+        self._build_graph(encoder.loss, decoder.loss, graph_type)
         self._init_summary()
 
-    def _build_graph(self, encoder_loss, decoder_loss):
-        # input: b x l
-        # [o]: predition: b x l
-        with tf.variable_scope('trans_encoder'):
-            trans_encoder_embedding = tf.get_variable('trans_encoder_embedding',
-                [self.encoder_class_num, args.latent_size],
-                tf.float32)
-            trans_encoder_embedding_var = tf.get_variable('trans_encoder_embedding_var',
-                [self.encoder_class_num, args.latent_size],
-                tf.float32)
-            input_dist_mean = tf.nn.softmax(tf.matmul(self.input_mean, trans_encoder_embedding, transpose_b=True)) # b x encoder_class_num
-            input_dist_logvar = tf.nn.softmax(tf.matmul(self.input_logvar, trans_encoder_embedding_var, transpose_b=True)) # b x encoder_class_num
-        with tf.variable_scope('trans'):
-            trans_w = tf.get_variable('trans_w', [self.encoder_class_num, self.decoder_class_num], tf.float32)
-            trans_w_var = tf.get_variable('trans_w_var', [self.encoder_class_num, self.decoder_class_num], tf.float32)
-            input_dist_mean = tf.nn.softmax(tf.matmul(input_dist_mean, trans_w)) # b x decoder_class_num
-            input_dist_logvar = tf.nn.softmax(tf.matmul(input_dist_logvar, trans_w_var)) # b x decoder_class_num
-        with tf.variable_scope('trans_decoder'):
-            trans_decoder_embedding = tf.get_variable('trans_decoder_embedding',
-                [self.decoder_class_num, args.latent_size],
-                tf.float32)
-            trans_decoder_embedding_var = tf.get_variable('trans_decoder_embedding_var',
-                [self.decoder_class_num, args.latent_size],
-                tf.float32)
-            self.predition_mean = tf.matmul(input_dist_mean, trans_decoder_embedding) # b x l
-            self.predition_logvar = tf.matmul(input_dist_logvar, trans_decoder_embedding_var) # b x l
-            self.predition = self.predition_mean + tf.exp(0.5 * self.predition_logvar) * tf.truncated_normal(tf.shape(self.predition_logvar))
-        # print("trans, input:", self.input)
-        # print("trans, predition_mean:", self.predition_mean)
-        # print("trans, predition_logvar:", self.predition_logvar)
-        # print("trans, predition:", self.predition)
-        # with tf.variable_scope('mlp'):
-        #     self.predition = tf.layers.dense(self.input, args.latent_size)
+    def _build_graph(self, encoder_loss, decoder_loss, graph_type):
+        if graph_type == 'mlp_dist':
+            self.predition_mean, self.predition_logvar, self.predition = trans_dist_mlp(args.latent_size, self.input_mean, self.input_logvar)
+        elif graph_type == 'mlp_vector':
+            self.predition = trans_vector_mlp(args.latent_size, self.input)
+        elif graph_type == "embed_dist":
+            self.predition_mean, self.predition_logvar, self.predition = trans_dist_embedding(args.latent_size, self.encoder_class_num, self.decoder_class_num, self.input_mean, self.input_logvar)
+        elif graph_type == "embed_vector":
+            self.predition = trans_vector_embedding(args.latent_size, self.encoder_class_num, self.decoder_class_num, self.input)
+        else:
+            print("ERROR graph type, should in [mlp_dist, mlp_vector, embed_dist, embed_vector]")
+            import sys
+            sys.exit(0)
+
         with tf.variable_scope('loss'):
-            self.loss_mean = tf.losses.mean_squared_error(self.predition_mean, self.output_mean)
-            self.loss_logvar = tf.losses.mean_squared_error(self.predition_logvar, self.output_logvar)
             self.loss = tf.losses.mean_squared_error(self.predition, self.output)
-            self.merged_loss = (self.loss_mean+self.loss_logvar+self.loss)*1000 + encoder_loss + decoder_loss
-            self.merged_mse = (self.loss_mean+self.loss_logvar+self.loss)
             self.wasserstein_loss = wasserstein_loss(self.predition, self.output)
-        
-        # with tf.variable_scope('optimizer'):
-        #     self.global_step = tf.Variable(0, trainable=False)
-        #     clipped_gradients, params = self._gradient_clipping(self.loss)
-        #     self.train_op = tf.train.AdamOptimizer().apply_gradients(
-        #         zip(clipped_gradients, params), global_step=self.global_step)
-
-        #     clipped_gradients, params = self._gradient_clipping(self.merged_loss)
-        #     self.merged_train_op = tf.train.AdamOptimizer().apply_gradients(
-        #         zip(clipped_gradients, params), global_step=self.global_step)
-    
-    def _build_graph_mlp(self, encoder_loss, decoder_loss):
-        # input: b x l
-        # [o]: predition: b x l
-        with tf.variable_scope('trans_mlp'):
-            trans_mean = tf.layers.dense(self.input_mean, args.latent_size, tf.nn.tanh, name="tran_mean_1")
-            trans_mean = tf.layers.dense(trans_mean, args.latent_size, tf.nn.tanh, name="tran_mean_2")
-            trans_mean = tf.layers.dense(trans_mean, args.latent_size, tf.nn.tanh, name="tran_mean_3")
-
-            trans_logvar = tf.layers.dense(self.input_logvar, args.latent_size, tf.nn.tanh, name="trans_logvar_1")
-            trans_logvar = tf.layers.dense(trans_logvar, args.latent_size, tf.nn.tanh, name="tran_logvar_2")
-            trans_logvar = tf.layers.dense(trans_logvar, args.latent_size, tf.nn.tanh, name="tran_logvar_3")
-
-            self.predition_mean = tf.layers.dense(trans_mean, args.latent_size, tf.nn.tanh, name="tran_mean") + 1e-12 # b x l
-            self.predition_logvar = tf.layers.dense(trans_logvar, args.latent_size, tf.nn.tanh, name="tran_logvar") + 1e-12 # b x l
-            self.predition = self.predition_mean + tf.exp(0.5 * self.predition_logvar) * tf.truncated_normal(tf.shape(self.predition_logvar))
-
-
-        with tf.variable_scope('loss'):
-            self.loss_mean = tf.losses.mean_squared_error(self.predition_mean, self.output_mean)
-            self.loss_logvar = tf.losses.mean_squared_error(self.predition_logvar, self.output_logvar)
-            self.loss = tf.losses.mean_squared_error(self.predition, self.output)
-            self.merged_loss = (self.loss_mean+self.loss_logvar+self.loss)*1000 + encoder_loss + decoder_loss
-            self.merged_mse = (self.loss_mean+self.loss_logvar+self.loss)
-            self.wasserstein_loss = wasserstein_loss(self.predition, self.output)    
+            self.merged_mse = self.loss
+            if graph_type == 'mlp_dist' or graph_type == "embed_dist":
+                self.loss_mean = tf.losses.mean_squared_error(self.predition_mean, self.output_mean)
+                self.loss_logvar = tf.losses.mean_squared_error(self.predition_logvar, self.output_logvar)
+                # self.merged_loss = (self.loss_mean+self.loss_logvar+self.loss)*1000 + encoder_loss + decoder_loss
+                self.merged_mse = (self.loss_mean+self.loss_logvar+self.loss)
 
     def _init_summary(self):
         with tf.variable_scope('summary'):
             tf.summary.scalar("trans_loss", self.loss)
-            tf.summary.scalar("trans_loss_mean", self.loss_mean)
-            tf.summary.scalar("trans_loss_logvar", self.loss_logvar)
-            tf.summary.scalar("merged_loss", self.merged_loss)
+            tf.summary.scalar("merged_mse", self.merged_mse)
+            # tf.summary.scalar("trans_loss_mean", self.loss_mean)
+            # tf.summary.scalar("trans_loss_logvar", self.loss_logvar)
+            # tf.summary.scalar("merged_loss", self.merged_loss)
             tf.summary.scalar("wasserstein_loss", self.wasserstein_loss)
             tf.summary.histogram("z_predition", self.predition)
             self.merged_summary_op = tf.summary.merge_all()

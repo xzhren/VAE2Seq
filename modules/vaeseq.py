@@ -44,7 +44,7 @@ class VAESEQ:
             encodervae_inputs = (self.y_enc_inp, self.y_dec_inp, self.y_dec_out)
             self.decoder_model = BaseVAE(params, encodervae_inputs, "decoder")
         with tf.variable_scope('transformer'):
-            self.transformer = Transformer(self.encoder_model, self.decoder_model)
+            self.transformer = Transformer(self.encoder_model, self.decoder_model, params['graph_type'])
         with tf.variable_scope('decoderrvae/decoding', reuse=True):
             self.training_rnn_out, self.training_logits = self.decoder_model._decoder_training(self.transformer.predition, reuse=True)
             self.predicted_ids_op = self.decoder_model._decoder_inference(self.transformer.predition)
@@ -76,7 +76,7 @@ class VAESEQ:
                 average_across_timesteps = False,
                 average_across_batch = True))
             if model_type == 0:
-                self.merged_loss = self.transformer.merged_mse*1000 + self.encoder_model.loss + self.decoder_model.loss
+                self.merged_loss = self.transformer.merged_mse*100000 + self.encoder_model.loss + self.decoder_model.loss
             elif model_type == 1:
                 self.merged_loss = self.transformer.wasserstein_loss*1000 + self.encoder_model.loss + self.decoder_model.loss
             elif model_type == 2:

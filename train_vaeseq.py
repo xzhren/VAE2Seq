@@ -16,6 +16,8 @@ def main():
     os.environ["CUDA_VISIBLE_DEVICES"] = str(args.cuda)
 
     ## Parameters
+    if args.exp == "NONE":
+        args.exp = args.graph_type
     args.max_dec_len = args.max_len+1
     exp_path = "./saved/"+args.exp+"/"
     if not os.path.exists(exp_path):
@@ -32,7 +34,8 @@ def main():
         'vocab_size': len(dataloader.word2idx),
         'word2idx': dataloader.word2idx,
         'idx2word': dataloader.idx2word,
-        'loss_type': args.loss_type}
+        'loss_type': args.loss_type,
+        'graph_type': args.graph_type}
     print('Vocab Size:', params['vocab_size'])
 
     ## ModelInit    

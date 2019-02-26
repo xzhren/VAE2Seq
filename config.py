@@ -22,7 +22,9 @@ parser.add_argument('--train_data', type=str, default="./corpus/reddit/train.txt
 
 parser.add_argument('--cuda', type=int, default=2)
 parser.add_argument('--loss_type', type=int, default=0)
-parser.add_argument('--exp', type=str, default="vaeseq_0220")
+parser.add_argument('--exp', type=str, default="NONE")
 parser.add_argument('--batch_size', type=int, default=64)
+parser.add_argument('--graph_type', type=str, default="embed_dist")
+
 
 args = parser.parse_args()
