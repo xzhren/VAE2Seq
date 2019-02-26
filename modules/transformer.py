@@ -45,6 +45,14 @@ class Transformer:
                 # self.merged_loss = (self.loss_mean+self.loss_logvar+self.loss)*1000 + encoder_loss + decoder_loss
                 self.merged_mse = (self.loss_mean+self.loss_logvar+self.loss)
 
+        # with tf.variable_scope('optimizer'):
+        #     self.global_step = tf.Variable(0, trainable=False)
+        #     loss_op = self.merged_mse
+
+        #     clipped_gradients, params = self._gradient_clipping(loss_op)
+        #     self.train_op = tf.train.AdamOptimizer().apply_gradients(
+        #         zip(clipped_gradients, params), global_step=self.global_step)
+
     def _init_summary(self):
         with tf.variable_scope('summary'):
             tf.summary.scalar("trans_loss", self.loss)
@@ -86,21 +94,21 @@ class Transformer:
         return {'summaries': summaries, 'trans_loss': loss, 'step': step}
 
 
-    def merged_train_session(self, sess, encoder_model, decoder_model,  x_enc_inp, x_dec_inp, x_dec_out, y_enc_inp, y_dec_inp, y_dec_out):
-        # merged_summary_op = tf.summary.merge_all()
-        feed_dict = {
-            encoder_model.enc_inp: x_enc_inp,
-            encoder_model.dec_inp: x_dec_inp,
-            encoder_model.dec_out: x_dec_out,
-            decoder_model.enc_inp: y_enc_inp,
-            decoder_model.dec_inp: y_dec_inp,
-            decoder_model.dec_out: y_dec_out
-        }
-        _, summaries, loss, trans_loss, encoder_loss, decoder_loss, step = sess.run(
-            [self.merged_train_op, self.merged_summary_op, self.merged_loss, self.loss, encoder_model.loss, decoder_model.loss, self.global_step],
-                feed_dict)
-        return {'summaries': summaries, 'merged_loss': loss, 'trans_loss': trans_loss, 
-            'encoder_loss': encoder_loss, 'decoder_loss': decoder_loss, 'step': step}
+    # def merged_train_session(self, sess, encoder_model, decoder_model,  x_enc_inp, x_dec_inp, x_dec_out, y_enc_inp, y_dec_inp, y_dec_out):
+    #     # merged_summary_op = tf.summary.merge_all()
+    #     feed_dict = {
+    #         encoder_model.enc_inp: x_enc_inp,
+    #         encoder_model.dec_inp: x_dec_inp,
+    #         encoder_model.dec_out: x_dec_out,
+    #         decoder_model.enc_inp: y_enc_inp,
+    #         decoder_model.dec_inp: y_dec_inp,
+    #         decoder_model.dec_out: y_dec_out
+    #     }
+    #     _, summaries, loss, trans_loss, encoder_loss, decoder_loss, step = sess.run(
+    #         [self.merged_train_op, self.merged_summary_op, self.merged_loss, self.loss, encoder_model.loss, decoder_model.loss, self.global_step],
+    #             feed_dict)
+    #     return {'summaries': summaries, 'merged_loss': loss, 'trans_loss': trans_loss, 
+    #         'encoder_loss': encoder_loss, 'decoder_loss': decoder_loss, 'step': step}
 
     def sample_test(self, sess, sentence, answer, encoder_model, decoder_model, predicted_ids_op):
         idx2word = encoder_model.params['idx2word']

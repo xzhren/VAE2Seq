@@ -18,6 +18,7 @@ class BaseVAE:
             self.enc_inp = inputs[0]
             self.dec_inp = inputs[1]
             self.dec_out = inputs[2]
+            self.global_step = inputs[3]
             # global helpers
             self._batch_size = tf.shape(self.enc_inp)[0]
             self.enc_seq_len = tf.count_nonzero(self.enc_inp, 1, dtype=tf.int32)
@@ -30,7 +31,7 @@ class BaseVAE:
         self._decode(z)
 
         with tf.variable_scope('loss'):
-            self.global_step = tf.Variable(0, trainable=False)
+            # self.global_step = tf.Variable(0, trainable=False)
             self.nll_loss = self._nll_loss_fn()
             self.kl_w = self._kl_w_fn(args.anneal_max, args.anneal_bias, self.global_step)
             self.kl_loss = self._kl_loss_fn(self.z_mean, self.z_logvar)
