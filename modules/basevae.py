@@ -9,7 +9,7 @@ class BaseVAE:
     def __init__(self, params, inputs, prefix):
         self.params = params
         self._build_inputs(inputs)
-        self._build_graph()
+        self._build_graph(prefix)
         self._init_summary(prefix)
 
     def _build_inputs(self, inputs):
@@ -25,7 +25,7 @@ class BaseVAE:
             self.dec_seq_len = tf.count_nonzero(self.dec_out, 1, dtype=tf.int32)
             print("self.dec_seq_len :", self.dec_seq_len ) # 64
 
-    def _build_graph(self):
+    def _build_graph(self, prefix):
         encoded_state = self._encode()
         z = self._reparam(encoded_state)
         self._decode(z)
@@ -39,10 +39,22 @@ class BaseVAE:
             loss_op = self.nll_loss + self.kl_w * self.kl_loss
             self.loss = loss_op
         
-        # with tf.variable_scope('optimizer'):
-        #     clipped_gradients, params = self._gradient_clipping(loss_op)
-        #     self.train_op = tf.train.AdamOptimizer().apply_gradients(
-        #         zip(clipped_gradients, params), global_step=self.global_step)
+        with tf.variable_scope('optimizer'):
+            clipped_gradients, params = self._gradient_clipping(loss_op)
+            print("========", len(clipped_gradients))
+            
+            if prefix == "decoder":
+                clipped_gradients_, params_ = [], []
+                for k, v in zip(clipped_gradients, params):
+                    if v.name.startswith("decodervae/"):
+                        clipped_gradients_.append(k)
+                        params_.append(v)
+                clipped_gradients, params = clipped_gradients_, params_
+            for k, v in zip(clipped_gradients, params):
+                print(v.name)
+            print("========", len(clipped_gradients))
+            self.train_op = tf.train.AdamOptimizer().apply_gradients(
+                zip(clipped_gradients, params), global_step=self.global_step)
 
     def _init_summary(self, prefix):
         with tf.variable_scope('summary'):
@@ -195,9 +207,9 @@ class BaseVAE:
     def train_session(self, sess, enc_inp, dec_inp, dec_out):
         _, summaries, loss, nll_loss, kl_w, kl_loss, step = sess.run(
             [self.train_op, self.merged_summary_op, self.loss, self.nll_loss, self.kl_w, self.kl_loss, self.global_step],
-                {self.enc_inp: enc_inp, self.dec_inp: dec_inp, self.dec_out: dec_out})
-                # {self.enc_inp: enc_inp, self.dec_inp: dec_inp, self.dec_out: dec_out,
-                #  'encodervae/enc_inp:0':enc_inp, 'encodervae/dec_inp:0':dec_inp, 'encodervae/dec_out:0':dec_out})
+                # {self.enc_inp: enc_inp, self.dec_inp: dec_inp, self.dec_out: dec_out})
+                {self.enc_inp: enc_inp, self.dec_inp: dec_inp, self.dec_out: dec_out,
+                 'placeholder/x_enc_inp:0':enc_inp, 'placeholder/x_dec_inp:0':dec_inp, 'placeholder/x_dec_out:0':dec_out})
         return {'summaries': summaries, 'loss': loss, 'nll_loss': nll_loss,
                 'kl_w': kl_w, 'kl_loss': kl_loss, 'step': step}
 

@@ -39,15 +39,16 @@ class VAESEQ:
             self.global_step = tf.Variable(0, trainable=False)
 
     def _init_models(self, params):
+        # self.global_step = None
         with tf.variable_scope('encodervae'):
             encodervae_inputs = (self.x_enc_inp, self.x_dec_inp, self.x_dec_out, self.global_step)
             self.encoder_model = BaseVAE(params, encodervae_inputs, "encoder")
-        with tf.variable_scope('decoderrvae'):
-            encodervae_inputs = (self.y_enc_inp, self.y_dec_inp, self.y_dec_out, self.global_step)
-            self.decoder_model = BaseVAE(params, encodervae_inputs, "decoder")
+        with tf.variable_scope('decodervae'):
+            decodervae_inputs = (self.y_enc_inp, self.y_dec_inp, self.y_dec_out, self.global_step)
+            self.decoder_model = BaseVAE(params, decodervae_inputs, "decoder")
         with tf.variable_scope('transformer'):
             self.transformer = Transformer(self.encoder_model, self.decoder_model, params['graph_type'])
-        with tf.variable_scope('decoderrvae/decoding', reuse=True):
+        with tf.variable_scope('decodervae/decoding', reuse=True):
             self.training_rnn_out, self.training_logits = self.decoder_model._decoder_training(self.transformer.predition, reuse=True)
             self.predicted_ids_op = self.decoder_model._decoder_inference(self.transformer.predition)
     
