@@ -47,7 +47,7 @@ class VAESEQ:
             decodervae_inputs = (self.y_enc_inp, self.y_dec_inp, self.y_dec_out, self.global_step)
             self.decoder_model = BaseVAE(params, decodervae_inputs, "decoder")
         with tf.variable_scope('transformer'):
-            self.transformer = Transformer(self.encoder_model, self.decoder_model, params['graph_type'])
+            self.transformer = Transformer(self.encoder_model, self.decoder_model, params['graph_type'], self.global_step)
         with tf.variable_scope('decodervae/decoding', reuse=True):
             self.training_rnn_out, self.training_logits = self.decoder_model._decoder_training(self.transformer.predition, reuse=True)
             self.predicted_ids_op = self.decoder_model._decoder_inference(self.transformer.predition)
@@ -85,12 +85,12 @@ class VAESEQ:
             elif model_type == 2:
                 self.merged_loss = self.merged_loss_seq + self.encoder_model.loss + self.decoder_model.loss
 
-        with tf.variable_scope('optimizer'):
-            # self.global_step = tf.Variable(0, trainable=False)
-            clipped_gradients, params = self._gradient_clipping(self.merged_loss)
-            self.merged_train_op = tf.train.AdamOptimizer().apply_gradients(
-                zip(clipped_gradients, params), global_step=self.global_step)
-            # self.merged_train_op = tf.train.AdamOptimizer(self.merged_loss)
+        # with tf.variable_scope('optimizer'):
+        #     # self.global_step = tf.Variable(0, trainable=False)
+        #     clipped_gradients, params = self._gradient_clipping(self.merged_loss)
+        #     self.merged_train_op = tf.train.AdamOptimizer().apply_gradients(
+        #         zip(clipped_gradients, params), global_step=self.global_step)
+        #     # self.merged_train_op = tf.train.AdamOptimizer(self.merged_loss)
             
         with tf.variable_scope('summary'):
             tf.summary.scalar("trans_loss", self.merged_loss_seq)
@@ -98,23 +98,46 @@ class VAESEQ:
             tf.summary.histogram("z_predition", self.transformer.predition)
             self.merged_summary_op = tf.summary.merge_all()
 
-    def train_encoder(self, sess, enc_inp, dec_inp, dec_out):
-        log = self.encoder_model.train_session(sess, enc_inp, dec_inp, dec_out)
+    def train_encoder(self, sess, x_enc_inp, x_dec_inp, x_dec_out, y_enc_inp, y_dec_inp, y_dec_out):
+        feed_dict = {
+            self.x_enc_inp: x_enc_inp,
+            self.x_dec_inp: x_dec_inp,
+            self.x_dec_out: x_dec_out,
+            self.y_enc_inp: y_enc_inp,
+            self.y_dec_inp: y_dec_inp,
+            self.y_dec_out: y_dec_out
+        }
+        log = self.encoder_model.train_session(sess, feed_dict)
         return log
         
-    def train_decoder(self, sess, enc_inp, dec_inp, dec_out):
-        log = self.decoder_model.train_session(sess, enc_inp, dec_inp, dec_out)
+    def train_decoder(self, sess, x_enc_inp, x_dec_inp, x_dec_out, y_enc_inp, y_dec_inp, y_dec_out):
+        feed_dict = {
+            self.x_enc_inp: x_enc_inp,
+            self.x_dec_inp: x_dec_inp,
+            self.x_dec_out: x_dec_out,
+            self.y_enc_inp: y_enc_inp,
+            self.y_dec_inp: y_dec_inp,
+            self.y_dec_out: y_dec_out
+        }
+        log = self.decoder_model.train_session(sess, feed_dict)
         return log
     
     def train_transformer(self, sess, x_enc_inp, x_dec_inp, x_dec_out, y_enc_inp, y_dec_inp, y_dec_out):
-        log = self.transformer.train_session(sess, self.encoder_model, self.decoder_model,
-                x_enc_inp, x_dec_inp, x_dec_out, y_enc_inp, y_dec_inp, y_dec_out)
+        feed_dict = {
+            self.x_enc_inp: x_enc_inp,
+            self.x_dec_inp: x_dec_inp,
+            self.x_dec_out: x_dec_out,
+            self.y_enc_inp: y_enc_inp,
+            self.y_dec_inp: y_dec_inp,
+            self.y_dec_out: y_dec_out
+        }
+        log = self.transformer.train_session(sess, feed_dict)
         return log
         
-    def merged_train(self, sess, x_enc_inp, x_dec_inp, x_dec_out, y_enc_inp, y_dec_inp, y_dec_out):
-        log = self.transformer.merged_train_session(sess, self.encoder_model, self.decoder_model,
-                x_enc_inp, x_dec_inp, x_dec_out, y_enc_inp, y_dec_inp, y_dec_out)
-        return log
+    # def merged_train(self, sess, x_enc_inp, x_dec_inp, x_dec_out, y_enc_inp, y_dec_inp, y_dec_out):
+    #     log = self.transformer.merged_train_session(sess, self.encoder_model, self.decoder_model,
+    #             x_enc_inp, x_dec_inp, x_dec_out, y_enc_inp, y_dec_inp, y_dec_out)
+    #     return log
 
     def merged_seq_train(self, sess, x_enc_inp, x_dec_inp, x_dec_out, y_enc_inp, y_dec_inp, y_dec_out):
         feed_dict = {

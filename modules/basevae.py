@@ -23,7 +23,6 @@ class BaseVAE:
             self._batch_size = tf.shape(self.enc_inp)[0]
             self.enc_seq_len = tf.count_nonzero(self.enc_inp, 1, dtype=tf.int32)
             self.dec_seq_len = tf.count_nonzero(self.dec_out, 1, dtype=tf.int32)
-            print("self.dec_seq_len :", self.dec_seq_len ) # 64
 
     def _build_graph(self, prefix):
         encoded_state = self._encode()
@@ -41,8 +40,7 @@ class BaseVAE:
         
         with tf.variable_scope('optimizer'):
             clipped_gradients, params = self._gradient_clipping(loss_op)
-            print("========", len(clipped_gradients))
-            
+            print("======== [base vae params]", prefix, len(clipped_gradients))
             if prefix == "decoder":
                 clipped_gradients_, params_ = [], []
                 for k, v in zip(clipped_gradients, params):
@@ -50,9 +48,16 @@ class BaseVAE:
                         clipped_gradients_.append(k)
                         params_.append(v)
                 clipped_gradients, params = clipped_gradients_, params_
+            elif prefix == "encoder":
+                clipped_gradients_, params_ = [], []
+                for k, v in zip(clipped_gradients, params):
+                    if v.name.startswith("encodervae/"):
+                        clipped_gradients_.append(k)
+                        params_.append(v)
+                clipped_gradients, params = clipped_gradients_, params_
             for k, v in zip(clipped_gradients, params):
                 print(v.name)
-            print("========", len(clipped_gradients))
+            print("======== [end]", len(clipped_gradients))
             self.train_op = tf.train.AdamOptimizer().apply_gradients(
                 zip(clipped_gradients, params), global_step=self.global_step)
 
@@ -188,8 +193,14 @@ class BaseVAE:
             average_across_batch = True))
 
     def _kl_w_fn(self, anneal_max, anneal_bias, global_step):
+        '''
+         when anneal_step = 0, kl_w = 0; when anneal_step = anneal_bias, kl_w = 1
+        '''
+        train_data_len = 3384185
+        epochstep = train_data_len / self._batch_size 
+        anneal_step_w = tf.cast(1 / epochstep * anneal_bias, tf.float32)
         return anneal_max * tf.sigmoid((10 / anneal_bias) * (
-            tf.cast(global_step, tf.float32) - tf.constant(anneal_bias / 2)))
+            anneal_step_w * tf.cast(global_step, tf.float32) - tf.constant(anneal_bias / 2)))
 
     def _kl_loss_fn(self, mean, gamma):
         return 0.5 * tf.reduce_sum(
@@ -204,12 +215,14 @@ class BaseVAE:
             generate:
     """
 
-    def train_session(self, sess, enc_inp, dec_inp, dec_out):
+    def train_session(self, sess, feed_dict):
         _, summaries, loss, nll_loss, kl_w, kl_loss, step = sess.run(
             [self.train_op, self.merged_summary_op, self.loss, self.nll_loss, self.kl_w, self.kl_loss, self.global_step],
+            feed_dict)
                 # {self.enc_inp: enc_inp, self.dec_inp: dec_inp, self.dec_out: dec_out})
-                {self.enc_inp: enc_inp, self.dec_inp: dec_inp, self.dec_out: dec_out,
-                 'placeholder/x_enc_inp:0':enc_inp, 'placeholder/x_dec_inp:0':dec_inp, 'placeholder/x_dec_out:0':dec_out})
+                # {self.enc_inp: enc_inp, self.dec_inp: dec_inp, self.dec_out: dec_out,
+                #  {'placeholder/x_enc_inp:0':x_enc_inp, 'placeholder/x_dec_inp:0':x_dec_inp, 'placeholder/x_dec_out:0':x_dec_out,
+                #  'placeholder/y_enc_inp:0':y_enc_inp, 'placeholder/y_dec_inp:0':y_dec_inp, 'placeholder/y_dec_out:0':y_dec_out})
         return {'summaries': summaries, 'loss': loss, 'nll_loss': nll_loss,
                 'kl_w': kl_w, 'kl_loss': kl_loss, 'step': step}
 

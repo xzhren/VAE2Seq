@@ -3,14 +3,13 @@ from __future__ import print_function
 import json
 import tensorflow as tf
 from tqdm import tqdm
+import os
 
 from data.data_reddit import REDDIT
 from modules.vaeseq import VAESEQ
 from config import args
 from measures import evaluation_utils
 
-import os
-# os.environ["CUDA_VISIBLE_DEVICES"] = "1"
 
 def main():
     ## CUDA
@@ -88,10 +87,10 @@ def main():
     
     from measures import selfbleu
     selfbleuobj = selfbleu.SelfBleu(trans_file, 1)
-    print("selfbleu-1", selfbleuobj.get_score())
+    print("  selfbleu-1", selfbleuobj.get_score())
     eval_log['selfbleu-1'] = selfbleuobj.get_score()
     selfbleuobj = selfbleu.SelfBleu(trans_file, 2)
-    print("selfbleu-2", selfbleuobj.get_score())
+    print("  selfbleu-2", selfbleuobj.get_score())
     eval_log['selfbleu-2'] = selfbleuobj.get_score()
 
     # Record Log

@@ -7,13 +7,14 @@ from modules.wasserstein_utils import wasserstein_loss
 from modules.transformer_utils import *
 
 class Transformer:
-    def __init__(self, encoder, decoder, graph_type):
+    def __init__(self, encoder, decoder, graph_type, global_step):
         self.input_mean = encoder.z_mean
         self.output_mean = decoder.z_mean
         self.input_logvar = encoder.z_logvar
         self.output_logvar = decoder.z_logvar
         self.input = encoder.z
         self.output = decoder.z
+        self.global_step = global_step
 
         self.encoder_class_num = 300
         self.decoder_class_num = 300
@@ -46,25 +47,35 @@ class Transformer:
                 self.merged_mse = (self.loss_mean+self.loss_logvar+self.loss)
 
         with tf.variable_scope('optimizer'):
-            self.global_step = tf.Variable(0, trainable=False)
+            # self.global_step = tf.Variable(0, trainable=False)
             loss_op = self.merged_mse
 
-            # clipped_gradients, params = self._gradient_clipping(loss_op)
-            # self.train_op = tf.train.AdamOptimizer().apply_gradients(
-                # zip(clipped_gradients, params), global_step=self.global_step)
+            clipped_gradients, params = self._gradient_clipping(loss_op)
+            print("======== [transformer params]", len(clipped_gradients))
+            clipped_gradients_, params_ = [], []
+            for k, v in zip(clipped_gradients, params):
+                if not v.name.startswith("encodervae/") and not v.name.startswith("decodervae/"):
+                    clipped_gradients_.append(k)
+                    params_.append(v)
+            clipped_gradients, params = clipped_gradients_, params_
+            for k, v in zip(clipped_gradients, params):
+                print(v.name)
+            print("======== [end]", len(clipped_gradients))
+            self.train_op = tf.train.AdamOptimizer().apply_gradients(
+                zip(clipped_gradients, params), global_step=self.global_step)
             # self.train_op = tf.train.AdamOptimizer(loss_op)
 
-            optimizer = tf.train.AdamOptimizer(1e-3)
-            # output_vars = tf.get_collection(tf.GraphKyes.TRAINABLE_VARIABLES)
-            output_vars = tf.get_collection(tf.GraphKeys.TRAINABLE_VARIABLES)
-            print("transformer vars:")
-            print(len(output_vars))
-            # print(len(output_vars), end=",")
-            output_vars = [v for v in output_vars if not v.name.startswith("encodervae/") and not v.name.startswith("decodervae/")]
-            for v in output_vars:
-                print(type(v.name), v.name)
-            print(len(output_vars))
-            self.train_op = optimizer.minimize(loss_op, var_list=output_vars, global_step=self.global_step)
+            # optimizer = tf.train.AdamOptimizer(1e-3)
+            # # output_vars = tf.get_collection(tf.GraphKyes.TRAINABLE_VARIABLES)
+            # output_vars = tf.get_collection(tf.GraphKeys.TRAINABLE_VARIABLES)
+            # print("transformer vars:")
+            # print(len(output_vars))
+            # # print(len(output_vars), end=",")
+            # output_vars = [v for v in output_vars if not v.name.startswith("encodervae/") and not v.name.startswith("decodervae/")]
+            # for v in output_vars:
+            #     print(type(v.name), v.name)
+            # print(len(output_vars))
+            # self.train_op = optimizer.minimize(loss_op, var_list=output_vars, global_step=self.global_step)
 
     def _init_summary(self):
         with tf.variable_scope('summary'):
@@ -89,18 +100,10 @@ class Transformer:
 
     """
 
-    def train_session(self, sess, encoder_model, decoder_model,  x_enc_inp, x_dec_inp, x_dec_out, y_enc_inp, y_dec_inp, y_dec_out):
+    def train_session(self, sess, feed_dict):
         """
             [TODO](xzhren): when nofix encoder & decoder parameters will it be changed ?
         """
-        feed_dict = {
-            encoder_model.enc_inp: x_enc_inp,
-            encoder_model.dec_inp: x_dec_inp,
-            encoder_model.dec_out: x_dec_out,
-            decoder_model.enc_inp: y_enc_inp,
-            decoder_model.dec_inp: y_dec_inp,
-            decoder_model.dec_out: y_dec_out
-        }
         _, summaries, loss, step = sess.run(
             [self.train_op, self.merged_summary_op, self.loss, self.global_step],
                 feed_dict)
