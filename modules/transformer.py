@@ -45,26 +45,27 @@ class Transformer:
                 # self.merged_loss = (self.loss_mean+self.loss_logvar+self.loss)*1000 + encoder_loss + decoder_loss
                 self.merged_mse = (self.loss_mean+self.loss_logvar+self.loss)
 
-        with tf.variable_scope('optimizer'):
-            self.global_step = tf.Variable(0, trainable=False)
-            loss_op = self.merged_mse
+        # with tf.variable_scope('optimizer'):
+        #     self.global_step = tf.Variable(0, trainable=False)
+        #     # loss_op = self.merged_mse
+        #     loss_op = tf.exp(self.merged_mse)
 
-            # clipped_gradients, params = self._gradient_clipping(loss_op)
-            # self.train_op = tf.train.AdamOptimizer().apply_gradients(
-                # zip(clipped_gradients, params), global_step=self.global_step)
-            # self.train_op = tf.train.AdamOptimizer(loss_op)
+        #     # clipped_gradients, params = self._gradient_clipping(loss_op)
+        #     # self.train_op = tf.train.AdamOptimizer().apply_gradients(
+        #         # zip(clipped_gradients, params), global_step=self.global_step)
+        #     # self.train_op = tf.train.AdamOptimizer(loss_op)
 
-            optimizer = tf.train.AdamOptimizer(1e-3)
-            # output_vars = tf.get_collection(tf.GraphKyes.TRAINABLE_VARIABLES)
-            output_vars = tf.get_collection(tf.GraphKeys.TRAINABLE_VARIABLES)
-            print("transformer vars:")
-            print(len(output_vars))
-            # print(len(output_vars), end=",")
-            output_vars = [v for v in output_vars if not v.name.startswith("encodervae/") and not v.name.startswith("decodervae/")]
-            for v in output_vars:
-                print(type(v.name), v.name)
-            print(len(output_vars))
-            self.train_op = optimizer.minimize(loss_op, var_list=output_vars, global_step=self.global_step)
+        #     optimizer = tf.train.AdamOptimizer(1e-3)
+        #     # output_vars = tf.get_collection(tf.GraphKyes.TRAINABLE_VARIABLES)
+        #     output_vars = tf.get_collection(tf.GraphKeys.TRAINABLE_VARIABLES)
+        #     print("transformer vars:")
+        #     print(len(output_vars))
+        #     # print(len(output_vars), end=",")
+        #     output_vars = [v for v in output_vars if not v.name.startswith("encodervae/") and not v.name.startswith("decodervae/")]
+        #     for v in output_vars:
+        #         print(type(v.name), v.name)
+        #     print(len(output_vars))
+        #     self.train_op = optimizer.minimize(loss_op, var_list=output_vars, global_step=self.global_step)
 
     def _init_summary(self):
         with tf.variable_scope('summary'):

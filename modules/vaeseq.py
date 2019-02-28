@@ -36,19 +36,19 @@ class VAESEQ:
             self.y_dec_inp = tf.placeholder(tf.int32, [None, args.max_len+1], name="y_dec_inp")
             self.y_dec_out = tf.placeholder(tf.int32, [None, args.max_len+1], name="y_dec_out")
             # train step
-            self.global_step = tf.Variable(0, trainable=False)
+            # self.global_step = tf.Variable(0, trainable=False)
 
     def _init_models(self, params):
-        # self.global_step = None
+        self.global_step = None
         with tf.variable_scope('encodervae'):
             encodervae_inputs = (self.x_enc_inp, self.x_dec_inp, self.x_dec_out, self.global_step)
             self.encoder_model = BaseVAE(params, encodervae_inputs, "encoder")
-        with tf.variable_scope('decodervae'):
+        with tf.variable_scope('decoderrvae'):
             decodervae_inputs = (self.y_enc_inp, self.y_dec_inp, self.y_dec_out, self.global_step)
             self.decoder_model = BaseVAE(params, decodervae_inputs, "decoder")
         with tf.variable_scope('transformer'):
             self.transformer = Transformer(self.encoder_model, self.decoder_model, params['graph_type'])
-        with tf.variable_scope('decodervae/decoding', reuse=True):
+        with tf.variable_scope('decoderrvae/decoding', reuse=True):
             self.training_rnn_out, self.training_logits = self.decoder_model._decoder_training(self.transformer.predition, reuse=True)
             self.predicted_ids_op = self.decoder_model._decoder_inference(self.transformer.predition)
     
@@ -85,12 +85,12 @@ class VAESEQ:
             elif model_type == 2:
                 self.merged_loss = self.merged_loss_seq + self.encoder_model.loss + self.decoder_model.loss
 
-        with tf.variable_scope('optimizer'):
-            # self.global_step = tf.Variable(0, trainable=False)
-            clipped_gradients, params = self._gradient_clipping(self.merged_loss)
-            self.merged_train_op = tf.train.AdamOptimizer().apply_gradients(
-                zip(clipped_gradients, params), global_step=self.global_step)
-            # self.merged_train_op = tf.train.AdamOptimizer(self.merged_loss)
+        # with tf.variable_scope('optimizer'):
+        #     # self.global_step = tf.Variable(0, trainable=False)
+        #     clipped_gradients, params = self._gradient_clipping(self.merged_loss)
+        #     self.merged_train_op = tf.train.AdamOptimizer().apply_gradients(
+        #         zip(clipped_gradients, params), global_step=self.global_step)
+        #     # self.merged_train_op = tf.train.AdamOptimizer(self.merged_loss)
             
         with tf.variable_scope('summary'):
             tf.summary.scalar("trans_loss", self.merged_loss_seq)

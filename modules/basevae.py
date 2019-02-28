@@ -31,7 +31,7 @@ class BaseVAE:
         self._decode(z)
 
         with tf.variable_scope('loss'):
-            # self.global_step = tf.Variable(0, trainable=False)
+            self.global_step = tf.Variable(0, trainable=False)
             self.nll_loss = self._nll_loss_fn()
             self.kl_w = self._kl_w_fn(args.anneal_max, args.anneal_bias, self.global_step)
             self.kl_loss = self._kl_loss_fn(self.z_mean, self.z_logvar)
@@ -39,22 +39,21 @@ class BaseVAE:
             loss_op = self.nll_loss + self.kl_w * self.kl_loss
             self.loss = loss_op
         
-        with tf.variable_scope('optimizer'):
-            clipped_gradients, params = self._gradient_clipping(loss_op)
-            print("========", len(clipped_gradients))
-            
-            if prefix == "decoder":
-                clipped_gradients_, params_ = [], []
-                for k, v in zip(clipped_gradients, params):
-                    if v.name.startswith("decodervae/"):
-                        clipped_gradients_.append(k)
-                        params_.append(v)
-                clipped_gradients, params = clipped_gradients_, params_
-            for k, v in zip(clipped_gradients, params):
-                print(v.name)
-            print("========", len(clipped_gradients))
-            self.train_op = tf.train.AdamOptimizer().apply_gradients(
-                zip(clipped_gradients, params), global_step=self.global_step)
+        # with tf.variable_scope('optimizer'):
+        #     clipped_gradients, params = self._gradient_clipping(loss_op)
+        #     print("========", len(clipped_gradients))
+        #     if prefix == "decoder":
+        #         clipped_gradients_, params_ = [], []
+        #         for k, v in zip(clipped_gradients, params):
+        #             if v.name.startswith("decodervae/"):
+        #                 clipped_gradients_.append(k)
+        #                 params_.append(v)
+        #         clipped_gradients, params = clipped_gradients_, params_
+        #     for k, v in zip(clipped_gradients, params):
+        #         print(v.name)
+        #     print("========", len(clipped_gradients))
+        #     self.train_op = tf.train.AdamOptimizer().apply_gradients(
+        #         zip(clipped_gradients, params), global_step=self.global_step)
 
     def _init_summary(self, prefix):
         with tf.variable_scope('summary'):
