@@ -133,7 +133,7 @@ class BaseVAE:
 
     def _decoder_training(self, z, reuse=False):
         tied_embedding = self.tied_embedding
-        init_state = tf.layers.dense(self.z, args.rnn_size, tf.nn.elu, name="z_proj_state", reuse=reuse)
+        init_state = tf.layers.dense(z, args.rnn_size, tf.nn.elu, name="z_proj_state", reuse=reuse)
         
         self.decoder_cells = self._rnn_cell(reuse=reuse)
 
@@ -144,7 +144,7 @@ class BaseVAE:
             cell = self.decoder_cells,
             helper = helper,
             initial_state = init_state,
-            concat_z = self.z)
+            concat_z = z)
         # b x t x h
         decoder_output, _, _ = tf.contrib.seq2seq.dynamic_decode(
             decoder = decoder)
@@ -158,8 +158,8 @@ class BaseVAE:
 
     def _decoder_inference(self, z):
         tied_embedding = self.tied_embedding
-        init_state = tf.layers.dense(self.z, args.rnn_size, tf.nn.elu, name="z_proj_state", reuse=True)
-        tiled_z = tf.tile(tf.expand_dims(self.z, 1), [1, args.beam_width, 1])
+        init_state = tf.layers.dense(z, args.rnn_size, tf.nn.elu, name="z_proj_state", reuse=True)
+        tiled_z = tf.tile(tf.expand_dims(z, 1), [1, args.beam_width, 1])
 
         decoder = ModifiedBeamSearchDecoder(
             cell = self.decoder_cells,

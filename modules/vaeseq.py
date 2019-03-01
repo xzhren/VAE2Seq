@@ -79,18 +79,18 @@ class VAESEQ:
                 average_across_timesteps = False,
                 average_across_batch = True))
             if model_type == 0:
-                self.merged_loss = self.transformer.merged_mse*100000 + self.encoder_model.loss + self.decoder_model.loss
+                self.merged_loss = self.transformer.merged_mse*1000 + self.encoder_model.loss + self.decoder_model.loss
             elif model_type == 1:
                 self.merged_loss = self.transformer.wasserstein_loss*1000 + self.encoder_model.loss + self.decoder_model.loss
             elif model_type == 2:
                 self.merged_loss = self.merged_loss_seq + self.encoder_model.loss + self.decoder_model.loss
 
-        # with tf.variable_scope('optimizer'):
-        #     # self.global_step = tf.Variable(0, trainable=False)
-        #     clipped_gradients, params = self._gradient_clipping(self.merged_loss)
-        #     self.merged_train_op = tf.train.AdamOptimizer().apply_gradients(
-        #         zip(clipped_gradients, params), global_step=self.global_step)
-        #     # self.merged_train_op = tf.train.AdamOptimizer(self.merged_loss)
+        with tf.variable_scope('optimizer'):
+            # self.global_step = tf.Variable(0, trainable=False)
+            clipped_gradients, params = self._gradient_clipping(self.merged_loss)
+            self.merged_train_op = tf.train.AdamOptimizer().apply_gradients(
+                zip(clipped_gradients, params), global_step=self.global_step)
+            # self.merged_train_op = tf.train.AdamOptimizer(self.merged_loss)
             
         with tf.variable_scope('summary'):
             tf.summary.scalar("trans_loss", self.merged_loss_seq)
@@ -198,16 +198,21 @@ class VAESEQ:
         # batch_size, trans_input = sess.run([self.encoder_model._batch_size, self.encoder_model.z], {self.x_enc_inp:enc_inp})
         # predicted_decoder_z = sess.run(self.transformer.predition, {self.transformer.input:trans_input})
         #### method - I.2.0
-        batch_size, trans_input_mean, trans_input_logvar = sess.run([self.encoder_model._batch_size, self.encoder_model.z_mean, self.encoder_model.z_logvar], {self.x_enc_inp:enc_inp})
-        predicted_decoder_z = sess.run(self.transformer.predition, {self.transformer.input_mean:trans_input_mean, self.transformer.input_logvar:trans_input_logvar})
+        # batch_size, trans_input_mean, trans_input_logvar = sess.run([self.encoder_model._batch_size, self.encoder_model.z_mean, self.encoder_model.z_logvar], {self.x_enc_inp:enc_inp})
+        # predicted_decoder_z = sess.run(self.transformer.predition, {self.transformer.input_mean:trans_input_mean, self.transformer.input_logvar:trans_input_logvar})
         # print("========================")
         # print(trans_input)
         # print("------------------------")
         # print(predicted_decoder_z)
         # print("========================")
-        predicted_ids_lt = sess.run(self.predicted_ids_op, 
-            {self.decoder_model._batch_size: batch_size, self.decoder_model.z: predicted_decoder_z,
-                self.decoder_model.enc_seq_len: [args.max_len]})
+
+        # predicted_ids_lt = sess.run(self.predicted_ids_op, 
+        #     {self.decoder_model._batch_size: batch_size, self.decoder_model.z: predicted_decoder_z,
+        #         self.decoder_model.enc_seq_len: [args.max_len]})
+
+        batch_size = sess.run(self.encoder_model._batch_size, {self.x_enc_inp:enc_inp})
+        predicted_ids_lt = sess.run(self.predicted_ids_op, {self.x_enc_inp:enc_inp, self.decoder_model.enc_seq_len: [args.max_len], self.decoder_model._batch_size: batch_size})
+
         #### method - II
         # batch_size = sess.run(self.encoder_model._batch_size, {self.x_enc_inp:enc_inp})
         # predicted_ids_lt = sess.run(self.predicted_ids_op, 

@@ -129,9 +129,10 @@ class Transformer:
     def sample_test(self, sess, sentence, answer, encoder_model, decoder_model, predicted_ids_op):
         idx2word = encoder_model.params['idx2word']
         infos = 'I: %s\n' % ' '.join([idx2word[idx] for idx in sentence if idx != PAD_TOKEN])
-        predict_decoder_z = sess.run(self.predition, {encoder_model.enc_inp: np.atleast_2d(sentence)})
-        predicted_ids = sess.run(predicted_ids_op, 
-            {decoder_model._batch_size: 1, decoder_model.z: predict_decoder_z, decoder_model.enc_seq_len: [args.max_len]})[0]
+        # predict_decoder_z = sess.run(self.predition, {encoder_model.enc_inp: np.atleast_2d(sentence)})
+        predicted_ids = sess.run(predicted_ids_op, {encoder_model.enc_inp: np.atleast_2d(sentence), decoder_model.enc_seq_len: [args.max_len], decoder_model._batch_size: 1})[0]
+        # predicted_ids = sess.run(predicted_ids_op, 
+            # {decoder_model._batch_size: 1, decoder_model.z: predict_decoder_z, decoder_model.enc_seq_len: [args.max_len]})[0]
         idx2word = decoder_model.params['idx2word']
         infos += 'O: %s\n' % ' '.join([idx2word[idx] for idx in predicted_ids if idx != PAD_TOKEN])
         infos += 'A: %s\n' % ' '.join([idx2word[idx] for idx in answer if idx != PAD_TOKEN])
