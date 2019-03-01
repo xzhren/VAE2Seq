@@ -214,4 +214,9 @@ class VAESEQ:
         #     {self.decoder_model._batch_size: batch_size, self.x_enc_inp: enc_inp, self.y_enc_inp: enc_inp, self.decoder_model.enc_seq_len: [args.max_len]})
         for predicted_ids in predicted_ids_lt:
             with open(outputfile, "a") as f:
-                f.write('%s\n' % ' '.join([idx2word[idx] for idx in predicted_ids]))
+                result = ' '.join([idx2word[idx] for idx in predicted_ids])
+                end_index = result.find(" </S> ")
+                if end_index != -1:
+                    result = result[:end_index]
+                f.write('%s\n' % result)
+                # f.write('%s\n' % ' '.join([idx2word[idx] for idx in predicted_ids]))

@@ -35,7 +35,10 @@ class BaseVAE:
             self.kl_w = self._kl_w_fn(args.anneal_max, args.anneal_bias, self.global_step)
             self.kl_loss = self._kl_loss_fn(self.z_mean, self.z_logvar)
         
+            #######
             loss_op = self.nll_loss + self.kl_w * self.kl_loss
+            # loss_op = self.nll_loss
+            ######
             self.loss = loss_op
         
         with tf.variable_scope('optimizer'):
@@ -256,7 +259,11 @@ class BaseVAE:
         predicted_ids_lt = sess.run(self.predicted_ids, {self.enc_inp:enc_inp})
         for predicted_ids in predicted_ids_lt:
             with open(outputfile, "a") as f:
-                f.write('%s\n' % ' '.join([idx2word[idx] for idx in predicted_ids]))
+                result = ' '.join([idx2word[idx] for idx in predicted_ids])
+                end_index = result.find(" </S> ")
+                if end_index != -1:
+                    result = result[:end_index]
+                f.write('%s\n' % result)
 
     def generate(self, sess):
         predicted_ids = sess.run(self.predicted_ids,
