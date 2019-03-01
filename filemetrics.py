@@ -1,6 +1,6 @@
 import sys
 from measures import evaluation_utils
-from measures import embedding_metrics
+# from measures import embedding_metrics
 
 reference_file_path = "/home/renxinzhang/renxingzhang/tmp/references.txt"
 prediction_file_path = "/home/renxinzhang/renxingzhang/tmp/predictions.txt"

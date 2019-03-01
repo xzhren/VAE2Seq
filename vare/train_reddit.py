@@ -33,15 +33,18 @@ def main():
     sess = tf.Session(config=config)
     sess.run(tf.global_variables_initializer())
 
+    train_data_len = 3384185
+    EPOCH_STEPS = (train_data_len-1)//args.batch_size+1
 
     summary_writer = tf.summary.FileWriter(exp_path, sess.graph)
     restore_path = tf.train.latest_checkpoint(exp_path)
     if restore_path:
         saver.restore(sess, restore_path)
+        last_train_step = int(restore_path.split("-")[-1]) % EPOCH_STEPS
+        print("Model restore from file: %s, last train step: %d" % (restore_path, last_train_step))
     # summary_writer = tf.summary.FileWriter(exp_path)
     # saver.restore(sess, exp_path+model_name)
 
-    train_data_len = 3384185
     for epoch in range(args.num_epoch):
         # dataloader.update_word_dropout()
         # print("\nWord Dropout")

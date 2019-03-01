@@ -150,7 +150,14 @@ class REDDIT(BaseDataLoader):
                     fout.write("-"*20+"\n")
             fout.write("\n\n\n")
             for metric, score in eval_log.items():
-                fout.write("  %s: %.1f\n" % (metric, score))
+                if metric == "bleu":
+                    fout.write("  bleu-1, bleu-2, bleu-3, bleu-4: %.5f,  %.5f,  %.5f,  %.5f\n" % score)
+                elif metric == "rouge":
+                    fout.write("  rouge-1, rouge-2, rouge-l: %.5f,  %.5f,  %.5f\n" % score)
+                else:
+                    fout.write("  %s: %.5f\n" % (metric, score))
+            # for metric, score in eval_log.items():
+            #     fout.write("  %s: %.1f\n" % (metric, score))
 
 def main():
     def word_dropout_test(d):
