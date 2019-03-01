@@ -1,12 +1,17 @@
 from __future__ import print_function
+
 from data_reddit import REDDIT
 from model_vae import VRAE
 from config import args
+
 import json
 import tensorflow as tf
 from tqdm import tqdm
+import os
 
 def main():
+    os.environ["CUDA_VISIBLE_DEVICES"] = "2"
+
     dataloader = REDDIT(batch_size=64, vocab_limit=35000, max_input_len=150, max_output_len=150)
     params = {
         'vocab_size': len(dataloader.word2idx),
@@ -20,14 +25,21 @@ def main():
     print(args)
     model = VRAE(params)
     saver = tf.train.Saver()
+    exp_path = "./saved/vaeseq/"
+    model_name = "vrae.ckpt"
 
     config = tf.ConfigProto(allow_soft_placement=True)
     config.gpu_options.allow_growth=True
     sess = tf.Session(config=config)
     sess.run(tf.global_variables_initializer())
 
-    summary_writer = tf.summary.FileWriter("./saved/")
-    saver.restore(sess, './saved/vrae.ckpt')
+
+    summary_writer = tf.summary.FileWriter(exp_path, sess.graph)
+    restore_path = tf.train.latest_checkpoint(exp_path)
+    if restore_path:
+        saver.restore(sess, restore_path)
+    # summary_writer = tf.summary.FileWriter(exp_path)
+    # saver.restore(sess, exp_path+model_name)
 
     train_data_len = 3384185
     for epoch in range(args.num_epoch):
@@ -67,7 +79,7 @@ def main():
                 model.reconstruct(sess, enc_inp[-1], dec_inp[-1])
                 model.customized_reconstruct(sess, 'i love this film and i think it is one of the best films')
                 model.customized_reconstruct(sess, 'this movie is a waste of time and there is no point to watch it')
-                save_path = saver.save(sess, './saved/vrae.ckpt', global_step=train_step)
+                save_path = saver.save(sess, exp_path+model_name, global_step=train_step)
                 print("Model saved in file: %s" % save_path)
 
         model.generate(sess)
@@ -75,7 +87,7 @@ def main():
         model.customized_reconstruct(sess, 'i love this film and i think it is one of the best films')
         model.customized_reconstruct(sess, 'this movie is a waste of time and there is no point to watch it')
         
-        save_path = saver.save(sess, './saved/vrae.ckpt')
+        save_path = saver.save(sess, exp_path+model_name, global_step=train_step)
         print("Model saved in file: %s" % save_path)
 
 
