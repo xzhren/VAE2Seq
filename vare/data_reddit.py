@@ -127,8 +127,8 @@ class REDDIT(BaseDataLoader):
     def trans_in_ref(self, finpath="./corpus/reddit/test.txt", foutpath="./saved/test.input.txt"):
         with open(finpath) as f, open(foutpath, "w") as fout:  
             for i, line in enumerate(f):
-                if i % 2 ==0:
-                    info = line[len("post: "):]
+                if i % 2 == 1:
+                    info = line[len("resp: "):]
                     fout.write(info.strip()+"\n")
 
     def record_result(self, eval_log, finpath, frespaht, foutpath):
