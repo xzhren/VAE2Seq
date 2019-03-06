@@ -22,6 +22,10 @@ def evaluation():
     print("selfbleu-1", selfbleuobj.get_score())
     selfbleuobj = selfbleu.SelfBleu(prediction_file_path, 2)
     print("selfbleu-2", selfbleuobj.get_score())
+    selfbleuobj = selfbleu.SelfBleu(prediction_file_path, 3)
+    print("selfbleu-3", selfbleuobj.get_score())
+    selfbleuobj = selfbleu.SelfBleu(prediction_file_path, 4)
+    print("selfbleu-4", selfbleuobj.get_score())
 
     # embedding_metrics.metrics_embeddings(reference_file_path,
     #     prediction_file_path)

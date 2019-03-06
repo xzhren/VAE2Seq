@@ -92,6 +92,12 @@ def main():
     selfbleuobj = selfbleu.SelfBleu(trans_file, 2)
     print("  selfbleu-2", selfbleuobj.get_score())
     eval_log['selfbleu-2'] = selfbleuobj.get_score()
+    selfbleuobj = selfbleu.SelfBleu(trans_file, 3)
+    print("  selfbleu-3", selfbleuobj.get_score())
+    eval_log['selfbleu-1'] = selfbleuobj.get_score()
+    selfbleuobj = selfbleu.SelfBleu(trans_file, 4)
+    print("  selfbleu-4", selfbleuobj.get_score())
+    eval_log['selfbleu-2'] = selfbleuobj.get_score()
 
     # Record Log
     dataloader.record_result(eval_log, finpath=test_file, frespaht=trans_file, foutpath=result_file)

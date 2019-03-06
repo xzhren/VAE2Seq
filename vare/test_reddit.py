@@ -41,6 +41,7 @@ def main():
         sess.run(tf.global_variables_initializer())
 
         restore_path = tf.train.latest_checkpoint(exp_path)
+        # restore_path = "./saved/vaeseq/vrae.ckpt-105756"
         saver.restore(sess, restore_path)
         print("Model restore from file: %s" % (restore_path))
         
