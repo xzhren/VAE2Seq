@@ -98,6 +98,17 @@ class VAESEQ:
             tf.summary.histogram("z_predition", self.transformer.predition)
             self.merged_summary_op = tf.summary.merge_all()
 
+    def show_parameters(self, sess):
+        with open("logs/param_log.txt", "a") as f:
+            f.write("==============================\n")
+            params = tf.trainable_variables()
+            train_params_names = [p.name for p in params]
+            params_values = sess.run(train_params_names)
+            for name, value in zip(train_params_names, params_values):
+                # print(name)
+                # print(value)
+                f.write(name+"\n"+str(value)+"\n")
+
     def train_encoder(self, sess, x_enc_inp, x_dec_inp, x_dec_out, y_enc_inp, y_dec_inp, y_dec_out):
         feed_dict = {
             self.x_enc_inp: x_enc_inp,

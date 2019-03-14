@@ -92,6 +92,7 @@ def main():
             t_log = model.train_transformer(sess, x_enc_inp, x_dec_inp, x_dec_out, y_enc_inp, y_dec_inp, y_dec_out)
             # log = model.merged_train(sess, x_enc_inp, x_dec_inp, x_dec_out, y_enc_inp, y_dec_inp, y_dec_out)
             # log = model.merged_seq_train(sess, x_enc_inp, x_dec_inp, x_dec_out, y_enc_inp, y_dec_inp, y_dec_out)
+            # model.show_parameters(sess)
 
             # get the summaries and iteration number so we can write summaries to tensorboard
             train_step = summary_flush(x_log, y_log, t_log, log, summary_writer)

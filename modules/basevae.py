@@ -36,8 +36,8 @@ class BaseVAE:
             self.kl_loss = self._kl_loss_fn(self.z_mean, self.z_logvar)
         
             #######
-            loss_op = self.nll_loss + self.kl_w * self.kl_loss
-            # loss_op = self.nll_loss
+            # loss_op = self.nll_loss + self.kl_w * self.kl_loss
+            loss_op = self.nll_loss
             ######
             self.loss = loss_op
         
@@ -217,7 +217,7 @@ class BaseVAE:
             evaluation:
             generate:
     """
-
+    
     def train_session(self, sess, feed_dict):
         _, summaries, loss, nll_loss, kl_w, kl_loss, step = sess.run(
             [self.train_op, self.merged_summary_op, self.loss, self.nll_loss, self.kl_w, self.kl_loss, self.global_step],
