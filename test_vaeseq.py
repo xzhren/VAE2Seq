@@ -20,6 +20,7 @@ def main():
         args.exp = args.graph_type
     args.max_dec_len = args.max_len+1
     exp_path = "./saved/"+args.exp+"/"
+    args.training = False
     print(args)
 
     ## DataLoader

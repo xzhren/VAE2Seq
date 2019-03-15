@@ -87,8 +87,8 @@ def main():
                 print("there are no more examples")
                 break
                 
-            x_log = model.train_encoder(sess, x_enc_inp, x_dec_inp, x_dec_out, y_enc_inp, y_dec_inp, y_dec_out)
-            y_log = model.train_decoder(sess, x_enc_inp, x_dec_inp, x_dec_out, y_enc_inp, y_dec_inp, y_dec_out)
+            # x_log = model.train_encoder(sess, x_enc_inp, x_dec_inp, x_dec_out, y_enc_inp, y_dec_inp, y_dec_out)
+            # y_log = model.train_decoder(sess, x_enc_inp, x_dec_inp, x_dec_out, y_enc_inp, y_dec_inp, y_dec_out)
             t_log = model.train_transformer(sess, x_enc_inp, x_dec_inp, x_dec_out, y_enc_inp, y_dec_inp, y_dec_out)
             # log = model.merged_train(sess, x_enc_inp, x_dec_inp, x_dec_out, y_enc_inp, y_dec_inp, y_dec_out)
             # log = model.merged_seq_train(sess, x_enc_inp, x_dec_inp, x_dec_out, y_enc_inp, y_dec_inp, y_dec_out)
@@ -103,6 +103,7 @@ def main():
                 show_loss(x_log, y_log, t_log, log, LOGGER)
         
             if step % args.display_info_step == 0 and step != 0:
+                args.training = False
                 save_path = saver.save(sess, exp_path+model_name, global_step=train_step)
                 print("Model saved in file: %s" % save_path)
                 print("============= Show Encoder ===============")
@@ -113,6 +114,7 @@ def main():
                 for i in range(3):
                     model.show_sample(sess, x_enc_inp[i], y_dec_out[i], LOGGER)
                 LOGGER.flush()
+                args.training = True
                 
         save_path = saver.save(sess, exp_path+model_name, global_step=train_step)
         print("Model saved in file: %s" % save_path)

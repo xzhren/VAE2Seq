@@ -48,7 +48,7 @@ def main():
     variables = tf.contrib.framework.get_variables_to_restore()
     print(len(variables), end=",")
     variables = [v for v in variables if v.name.startswith("encodervae/") or v.name.startswith("decodervae/")]
-    variables = [v for v in variables if not (v.name.startswith("encodervae/optimizer/") or v.name.startswith("decodervae/optimizer/"))]
+    # variables = [v for v in variables if not (v.name.startswith("encodervae/optimizer/") or v.name.startswith("decodervae/optimizer/"))]
     for v in variables:
         print(type(v.name), v.name)
     print(len(variables))
@@ -66,7 +66,8 @@ def main():
             saver.restore(sess, restore_path)
     
         saver = tf.train.Saver(variables)    
-        restore_path = tf.train.latest_checkpoint("saved/bivae_raw/")
+        restore_path = tf.train.latest_checkpoint("saved/bivae/")
+        print("Model restore from file: ", restore_path)
         saver.restore(sess, restore_path)
         
         saver = tf.train.Saver() # new saver
