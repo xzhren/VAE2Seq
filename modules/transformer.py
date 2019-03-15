@@ -31,6 +31,8 @@ class Transformer:
             self.predition_mean, self.predition_logvar, self.predition = trans_dist_embedding(args.latent_size, self.encoder_class_num, self.decoder_class_num, self.input_mean, self.input_logvar)
         elif graph_type == "embed_vector":
             self.predition = trans_vector_embedding(args.latent_size, self.encoder_class_num, self.decoder_class_num, self.input)
+        elif graph_type == "trans_dist":
+            self.predition_mean, self.predition_logvar, self.predition = trans_dist_transformer(args.latent_size, self.input_mean, self.input_logvar, args.training)
         else:
             print("ERROR graph type, should in [mlp_dist, mlp_vector, embed_dist, embed_vector]")
             import sys
@@ -46,9 +48,11 @@ class Transformer:
                 # self.merged_loss = (self.loss_mean+self.loss_logvar+self.loss)*1000 + encoder_loss + decoder_loss
                 self.merged_mse = (self.loss_mean+self.loss_logvar+self.loss)
 
+
+    def build_loss(self, loss_op):
         with tf.variable_scope('optimizer'):
             # self.global_step = tf.Variable(0, trainable=False)
-            loss_op = self.merged_mse
+            # loss_op = self.merged_mse
 
             clipped_gradients, params = self._gradient_clipping(loss_op)
             print("======== [transformer params]", len(clipped_gradients))
@@ -100,12 +104,12 @@ class Transformer:
 
     """
 
-    def train_session(self, sess, feed_dict):
+    def train_session(self, sess, feed_dict, loss_op):
         """
             [TODO](xzhren): when nofix encoder & decoder parameters will it be changed ?
         """
         _, summaries, loss, step = sess.run(
-            [self.train_op, self.merged_summary_op, self.loss, self.global_step],
+            [self.train_op, self.merged_summary_op, loss_op, self.global_step],
                 feed_dict)
         return {'summaries': summaries, 'trans_loss': loss, 'step': step}
 

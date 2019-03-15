@@ -25,6 +25,7 @@ parser.add_argument('--loss_type', type=int, default=0)
 parser.add_argument('--exp', type=str, default="NONE")
 parser.add_argument('--batch_size', type=int, default=32)
 parser.add_argument('--graph_type', type=str, default="embed_dist")
+parser.add_argument('--training', type=bool, default=True)
 
 
 args = parser.parse_args()

@@ -17,6 +17,7 @@ class VAESEQ:
         self._build_inputs()
         self._init_models(params)
         self._loss_optimizer(params['loss_type'])
+        self.build_trans_loss(params['loss_type'])
         self.print_parameters()
 
 
@@ -98,6 +99,16 @@ class VAESEQ:
             tf.summary.histogram("z_predition", self.transformer.predition)
             self.merged_summary_op = tf.summary.merge_all()
 
+    def build_trans_loss(self, loss_type):
+        if self.params['loss_type'] == 0:
+            train_loss = self.transformer.merged_mse
+        elif self.params['loss_type'] == 1:
+            train_loss = self.transformer.wasserstein_loss
+        elif self.params['loss_type'] == 2:
+            train_loss = self.merged_loss_seq
+        with tf.variable_scope('transformer'):
+            self.transformer.build_loss(train_loss)
+
     def show_parameters(self, sess):
         with open("logs/param_log.txt", "a") as f:
             f.write("==============================\n")
@@ -142,7 +153,13 @@ class VAESEQ:
             self.y_dec_inp: y_dec_inp,
             self.y_dec_out: y_dec_out
         }
-        log = self.transformer.train_session(sess, feed_dict)
+        if self.params['loss_type'] == 0:
+            train_loss = self.transformer.merged_mse
+        elif self.params['loss_type'] == 1:
+            train_loss = self.transformer.wasserstein_loss
+        elif self.params['loss_type'] == 2:
+            train_loss = self.merged_loss_seq
+        log = self.transformer.train_session(sess, feed_dict, train_loss)
         return log
         
     # def merged_train(self, sess, x_enc_inp, x_dec_inp, x_dec_out, y_enc_inp, y_dec_inp, y_dec_out):

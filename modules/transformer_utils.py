@@ -1,5 +1,32 @@
 import tensorflow as tf
 
+from modules.transformer_modules import multihead_attention, ff
+
+def trans_dist_transformer(latent_size, input_mean, input_logvar, training):
+    enc = tf.stack([input_mean, input_logvar], axis=1) # bxl => bx2xl
+
+    num_blocks = 6//2
+    num_heads = 8//2
+    dropout_rate = 0.3
+    d_ff = 2048//2
+    # d_model = 512/2
+    for i in range(num_blocks):
+        with tf.variable_scope("num_blocks_{}".format(i), reuse=tf.AUTO_REUSE):
+            # self-attention
+            enc = multihead_attention(queries=enc,
+                                        keys=enc,
+                                        values=enc,
+                                        num_heads=num_heads,
+                                        dropout_rate=dropout_rate,
+                                        training=training,
+                                        causality=False)
+            # feed forward
+            enc = ff(enc, num_units=[d_ff, latent_size])
+
+    predition_mean, predition_logvar = tf.unstack(enc, axis=1) # bx2xl => bxl, bxl
+    predition = predition_mean + tf.exp(0.5 * predition_logvar) * tf.truncated_normal(tf.shape(predition_logvar))
+    return predition_mean, predition_logvar, predition
+
 def trans_dist_embedding(latent_size, encoder_class_num, decoder_class_num, input_mean, input_logvar):
     # input: b x l
     # [o]: predition: b x l
