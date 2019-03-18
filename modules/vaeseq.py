@@ -81,17 +81,24 @@ class VAESEQ:
                 average_across_batch = True))
             if model_type == 0:
                 self.merged_loss = self.transformer.merged_mse*1000 + self.encoder_model.loss + self.decoder_model.loss
+                self.merged_loss_transformer = self.transformer.merged_mse
             elif model_type == 1:
                 self.merged_loss = self.transformer.wasserstein_loss*1000 + self.encoder_model.loss + self.decoder_model.loss
+                self.merged_loss_transformer = self.transformer.wasserstein_loss
             elif model_type == 2:
                 self.merged_loss = self.merged_loss_seq + self.encoder_model.loss + self.decoder_model.loss
+                self.merged_loss_transformer = self.merged_loss_seq
 
         with tf.variable_scope('optimizer'):
             # self.global_step = tf.Variable(0, trainable=False)
             clipped_gradients, params = self._gradient_clipping(self.merged_loss)
             self.merged_train_op = tf.train.AdamOptimizer().apply_gradients(
                 zip(clipped_gradients, params), global_step=self.global_step)
-            # self.merged_train_op = tf.train.AdamOptimizer(self.merged_loss)
+
+            clipped_gradients, params = self._gradient_clipping(self.merged_loss_transformer)
+            self.merged_train_op_transformer = tf.train.AdamOptimizer().apply_gradients(
+                zip(clipped_gradients, params), global_step=self.global_step)
+            self.merged_train_op = tf.train.AdamOptimizer(self.merged_loss)
             
         with tf.variable_scope('summary'):
             tf.summary.scalar("trans_loss", self.merged_loss_seq)
@@ -182,6 +189,19 @@ class VAESEQ:
         return {'summaries': summaries, 'merged_loss': loss, 'trans_loss': trans_loss, 
             'encoder_loss': encoder_loss, 'decoder_loss': decoder_loss, 'step': step}
 
+    def merged_transformer_train(self, sess, x_enc_inp, x_dec_inp, x_dec_out, y_enc_inp, y_dec_inp, y_dec_out):
+        feed_dict = {
+            self.x_enc_inp: x_enc_inp,
+            self.x_dec_inp: x_dec_inp,
+            self.x_dec_out: x_dec_out,
+            self.y_enc_inp: y_enc_inp,
+            self.y_dec_inp: y_dec_inp,
+            self.y_dec_out: y_dec_out
+        }
+        _, summaries, loss, step = sess.run(
+            [self.merged_train_op_transformer, self.merged_summary_op, self.merged_loss_transformer, self.global_step],
+                feed_dict)
+        return {'summaries': summaries, 'trans_loss': loss, 'step': step}
 
     def show_encoder(self, sess, x, y, LOGGER):
         # self.encoder_model.generate(sess)

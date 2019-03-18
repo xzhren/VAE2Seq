@@ -66,7 +66,7 @@ def main():
             saver.restore(sess, restore_path)
     
         saver = tf.train.Saver(variables)    
-        restore_path = tf.train.latest_checkpoint("saved/bivae/")
+        restore_path = tf.train.latest_checkpoint("saved/bivae_nokl/")
         print("Model restore from file: ", restore_path)
         saver.restore(sess, restore_path)
         
