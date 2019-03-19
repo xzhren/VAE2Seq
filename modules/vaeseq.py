@@ -98,7 +98,6 @@ class VAESEQ:
             clipped_gradients, params = self._gradient_clipping(self.merged_loss_transformer)
             self.merged_train_op_transformer = tf.train.AdamOptimizer().apply_gradients(
                 zip(clipped_gradients, params), global_step=self.global_step)
-            self.merged_train_op = tf.train.AdamOptimizer(self.merged_loss)
             
         with tf.variable_scope('summary'):
             tf.summary.scalar("trans_loss", self.merged_loss_seq)
