@@ -29,13 +29,13 @@ class VAESEQ:
     def _build_inputs(self):
         with tf.variable_scope('placeholder'):
             # placeholders x
-            self.x_enc_inp = tf.placeholder(tf.int32, [None, args.max_len], name="x_enc_inp")
-            self.x_dec_inp = tf.placeholder(tf.int32, [None, args.max_len+1], name="x_dec_inp")
-            self.x_dec_out = tf.placeholder(tf.int32, [None, args.max_len+1], name="x_dec_out")
+            self.x_enc_inp = tf.placeholder(tf.int32, [None, args.enc_max_len], name="x_enc_inp")
+            self.x_dec_inp = tf.placeholder(tf.int32, [None, args.enc_max_len+1], name="x_dec_inp")
+            self.x_dec_out = tf.placeholder(tf.int32, [None, args.enc_max_len+1], name="x_dec_out")
             # placeholders y
-            self.y_enc_inp = tf.placeholder(tf.int32, [None, args.max_len], name="y_enc_inp")
-            self.y_dec_inp = tf.placeholder(tf.int32, [None, args.max_len+1], name="y_dec_inp")
-            self.y_dec_out = tf.placeholder(tf.int32, [None, args.max_len+1], name="y_dec_out")
+            self.y_enc_inp = tf.placeholder(tf.int32, [None, args.dec_max_len], name="y_enc_inp")
+            self.y_dec_inp = tf.placeholder(tf.int32, [None, args.dec_max_len+1], name="y_dec_inp")
+            self.y_dec_out = tf.placeholder(tf.int32, [None, args.dec_max_len+1], name="y_dec_out")
             # train step
             self.global_step = tf.Variable(0, trainable=False)
 
@@ -43,9 +43,13 @@ class VAESEQ:
         # self.global_step = None
         with tf.variable_scope('encodervae'):
             encodervae_inputs = (self.x_enc_inp, self.x_dec_inp, self.x_dec_out, self.global_step)
+            params['max_len'] = args.enc_max_len
+            params['max_dec_len'] = args.enc_max_len + 1
             self.encoder_model = BaseVAE(params, encodervae_inputs, "encoder")
         with tf.variable_scope('decodervae'):
             decodervae_inputs = (self.y_enc_inp, self.y_dec_inp, self.y_dec_out, self.global_step)
+            params['max_len'] = args.dec_max_len
+            params['max_dec_len'] = args.dec_max_len + 1
             self.decoder_model = BaseVAE(params, decodervae_inputs, "decoder")
         with tf.variable_scope('transformer'):
             self.transformer = Transformer(self.encoder_model, self.decoder_model, params['graph_type'], self.global_step)
@@ -70,7 +74,7 @@ class VAESEQ:
 
     def _loss_optimizer(self, model_type):
         with tf.variable_scope('merge_loss'):
-            mask_fn = lambda l : tf.sequence_mask(l, args.max_dec_len, dtype=tf.float32)
+            mask_fn = lambda l : tf.sequence_mask(l, args.dec_max_len + 1, dtype=tf.float32)
             dec_seq_len = tf.count_nonzero(self.y_dec_out, 1, dtype=tf.int32)
             mask = mask_fn(dec_seq_len) # b x t = 64 x ?
             self.merged_loss_seq =  tf.reduce_sum(tf.contrib.seq2seq.sequence_loss(
@@ -228,16 +232,6 @@ class VAESEQ:
 
     def evaluation_decoder_vae(self, sess, enc_inp, outputfile):
         self.decoder_model.evaluation(sess, enc_inp, outputfile)
-    
-    # def evaluation(self, sess, enc_inp, outputfile):
-    #     idx2word = self.params['idx2word']
-    #     batch_size, predicted_decoder_z = sess.run([self.encoder_model._batch_size, self.transformer.predition], {self.encoder_model.enc_inp:enc_inp})
-    #     predicted_ids_lt = sess.run(self.decoder_model.predicted_ids, 
-    #         {self.decoder_model._batch_size: batch_size, self.decoder_model.z: predicted_decoder_z,
-    #             self.decoder_model.enc_seq_len: [args.max_len]})
-    #     for predicted_ids in predicted_ids_lt:
-    #         with open(outputfile, "a") as f:
-    #             f.write('%s\n' % ' '.join([idx2word[idx] for idx in predicted_ids]))
 
     def evaluation(self, sess, enc_inp, outputfile):
         idx2word = self.params['idx2word']
@@ -255,15 +249,15 @@ class VAESEQ:
 
         # predicted_ids_lt = sess.run(self.predicted_ids_op, 
         #     {self.decoder_model._batch_size: batch_size, self.decoder_model.z: predicted_decoder_z,
-        #         self.decoder_model.enc_seq_len: [args.max_len]})
+        #         self.decoder_model.enc_seq_len: [args.dec_max_len]})
 
         batch_size = sess.run(self.encoder_model._batch_size, {self.x_enc_inp:enc_inp})
-        predicted_ids_lt = sess.run(self.predicted_ids_op, {self.x_enc_inp:enc_inp, self.decoder_model.enc_seq_len: [args.max_len], self.decoder_model._batch_size: batch_size})
+        predicted_ids_lt = sess.run(self.predicted_ids_op, {self.x_enc_inp:enc_inp, self.decoder_model.enc_seq_len: [args.dec_max_len], self.decoder_model._batch_size: batch_size})
 
         #### method - II
         # batch_size = sess.run(self.encoder_model._batch_size, {self.x_enc_inp:enc_inp})
         # predicted_ids_lt = sess.run(self.predicted_ids_op, 
-        #     {self.decoder_model._batch_size: batch_size, self.x_enc_inp: enc_inp, self.y_enc_inp: enc_inp, self.decoder_model.enc_seq_len: [args.max_len]})
+        #     {self.decoder_model._batch_size: batch_size, self.x_enc_inp: enc_inp, self.y_enc_inp: enc_inp, self.decoder_model.enc_seq_len: [args.dec_max_len]})
         for predicted_ids in predicted_ids_lt:
             with open(outputfile, "a") as f:
                 result = ' '.join([idx2word[idx] for idx in predicted_ids])

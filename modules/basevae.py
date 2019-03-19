@@ -148,7 +148,7 @@ class BaseVAE:
         # b x t x h
         decoder_output, _, _ = tf.contrib.seq2seq.dynamic_decode(
             decoder = decoder)
-        logits = self._dynamic_time_pad(decoder_output.rnn_output, args.max_dec_len)
+        logits = self._dynamic_time_pad(decoder_output.rnn_output, self.params['max_dec_len'])
 
         # b x t x h => b x t x v ? # 64,?,200
         lin_proj = tf.layers.Dense(self.params['vocab_size'], _scope='out_proj_dense', _reuse=reuse)
@@ -186,7 +186,7 @@ class BaseVAE:
 
     def _nll_loss_fn(self):
         # mask_fn = lambda l : tf.sequence_mask(l, tf.reduce_max(l), dtype=tf.float32)
-        mask_fn = lambda l : tf.sequence_mask(l, args.max_dec_len, dtype=tf.float32)
+        mask_fn = lambda l : tf.sequence_mask(l, self.params['max_dec_len'], dtype=tf.float32)
         mask = mask_fn(self.dec_seq_len) # b x t = 64 x ?
         return tf.reduce_sum(tf.contrib.seq2seq.sequence_loss(
             logits = self.training_logits,
@@ -246,10 +246,10 @@ class BaseVAE:
 
     def customized_reconstruct(self, sess, sentence):
         idx2word = self.params['idx2word']
-        sentence = [self.get_new_w(w) for w in sentence.split()][:args.max_len]
+        sentence = [self.get_new_w(w) for w in sentence.split()][:self.params['max_len']]
         print('I: %s' % ' '.join([idx2word[idx] for idx in sentence]))
         print()
-        sentence = sentence + [self.params['word2idx'][PAD_STRING]] * (args.max_len-len(sentence))
+        sentence = sentence + [self.params['word2idx'][PAD_STRING]] * (self.params['max_len']-len(sentence))
         predicted_ids = sess.run(self.predicted_ids, {self.enc_inp: np.atleast_2d(sentence)})[0]
         print('O: %s' % ' '.join([idx2word[idx] for idx in predicted_ids]))
         print('-'*12)
@@ -269,6 +269,6 @@ class BaseVAE:
         predicted_ids = sess.run(self.predicted_ids,
                                 {self._batch_size: 1,
                                  self.z: np.random.randn(1, args.latent_size),
-                                 self.enc_seq_len: [args.max_len]})[0]
+                                 self.enc_seq_len: [self.params['max_len']]})[0]
         print('G: %s' % ' '.join([self.params['idx2word'][idx] for idx in predicted_ids]))
         print('-'*12)

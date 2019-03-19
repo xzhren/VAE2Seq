@@ -18,7 +18,7 @@ def main():
     ## Parameters
     if args.exp == "NONE":
         args.exp = args.graph_type
-    args.max_dec_len = args.max_len+1
+        
     exp_path = "./saved/"+args.exp+"/"
     if not os.path.exists(exp_path):
         os.makedirs(exp_path)
@@ -29,7 +29,7 @@ def main():
     print(args)
 
     ## DataLoader
-    dataloader = REDDIT(batch_size=args.batch_size, vocab_limit=args.vocab_limit, max_input_len=args.max_len, max_output_len=args.max_len)
+    dataloader = REDDIT(batch_size=args.batch_size, vocab_limit=args.vocab_limit, max_input_len=args.enc_max_len, max_output_len=args.dec_max_len)
     params = {
         'vocab_size': len(dataloader.word2idx),
         'word2idx': dataloader.word2idx,

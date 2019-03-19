@@ -18,20 +18,19 @@ def main():
     ## Parameters
     if args.exp == "NONE":
         args.exp = args.graph_type
-    args.max_len =  400
-    args.max_dec_len = 401
-    # args.max_dec_len = args.max_len+1
+    args.enc_max_len =  400
+    args.dec_max_len = 100
     exp_path = "./saved/"+args.exp+"/"
     if not os.path.exists(exp_path):
         os.makedirs(exp_path)
     model_name = args.model_name
-    train_data_len = 3384185
+    train_data_len = 287227
     train_data_path = args.train_data
     EPOCH_STEPS = (train_data_len-1)//args.batch_size+1
     print(args)
 
     ## DataLoader
-    dataloader = CNNDAILY(batch_size=args.batch_size, vocab_limit=args.vocab_limit, max_input_len=args.max_len, max_output_len=args.max_len)
+    dataloader = CNNDAILY(batch_size=args.batch_size, vocab_limit=args.vocab_limit, max_input_len=args.enc_max_len, max_output_len=args.dec_max_len)
     params = {
         'vocab_size': len(dataloader.word2idx),
         'word2idx': dataloader.word2idx,

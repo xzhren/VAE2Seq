@@ -120,7 +120,7 @@ class CNNDAILY(BaseDataLoader):
         dec_inp = self._word_dropout(dec_inp_full)
         return dec_inp
 
-    def trans_in_ref(self, finpath="./corpus/reddit/test.tgt.tagged", foutpath="./saved/test.input.txt"):
+    def trans_in_ref(self, finpath="./corpus/reddit/test.txt.tgt.tagged", foutpath="./saved/test.input.txt"):
         with open(finpath) as f, open(foutpath, "w") as fout:  
             for i, line in enumerate(f):
                 info = line.split(END_STRING)[0]

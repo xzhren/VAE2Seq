@@ -3,7 +3,6 @@ import argparse
 parser = argparse.ArgumentParser()
 
 parser.add_argument('--num_sampled', type=int, default=1000)
-parser.add_argument('--max_len', type=int, default=150)
 parser.add_argument('--word_dropout_rate', type=float, default=0.8)
 parser.add_argument('--embedding_dim', type=int, default=128)
 parser.add_argument('--rnn_size', type=int, default=256)
@@ -15,6 +14,9 @@ parser.add_argument('--anneal_bias', type=int, default=6000)
 parser.add_argument('--num_epoch', type=int, default=30)
 parser.add_argument('--display_loss_step', type=int, default=50)
 parser.add_argument('--display_info_step', type=int, default=1000)
+
+parser.add_argument('--enc_max_len', type=int, default=150)
+parser.add_argument('--dec_max_len', type=int, default=150)
 
 parser.add_argument('--vocab_limit', type=int, default=35000)
 parser.add_argument('--model_name', type=str, default="vrae.ckpt")
