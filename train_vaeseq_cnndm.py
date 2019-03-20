@@ -20,6 +20,7 @@ def main():
         args.exp = args.graph_type
     args.enc_max_len =  400
     args.dec_max_len = 100
+    # args.vocab_limit = 
     exp_path = "./saved/"+args.exp+"/"
     if not os.path.exists(exp_path):
         os.makedirs(exp_path)
@@ -82,20 +83,20 @@ def main():
 
             # get batch data
             try:
-                x_enc_inp, x_dec_inp_full, x_dec_out, y_enc_inp, y_dec_inp_full, y_dec_out = next(batcher)
+                (x_enc_inp, x_dec_inp_full, x_dec_out, y_enc_inp, y_dec_inp_full, y_dec_out), atten_data = next(batcher)
                 x_dec_inp = dataloader.update_word_dropout(x_dec_inp_full)
                 y_dec_inp = dataloader.update_word_dropout(y_dec_inp_full)
             except StopIteration:
                 print("there are no more examples")
                 break
                 
-            for _ in range(2):
-                x_log = model.train_encoder(sess, x_enc_inp, x_dec_inp, x_dec_out, y_enc_inp, y_dec_inp, y_dec_out)
-                y_log = model.train_decoder(sess, x_enc_inp, x_dec_inp, x_dec_out, y_enc_inp, y_dec_inp, y_dec_out)
+            # for _ in range(2):
+                # x_log = model.train_encoder(sess, x_enc_inp, x_dec_inp, x_dec_out, y_enc_inp, y_dec_inp, y_dec_out)
+                # y_log = model.train_decoder(sess, x_enc_inp, x_dec_inp, x_dec_out, y_enc_inp, y_dec_inp, y_dec_out)
             # t_log = model.train_transformer(sess, x_enc_inp, x_dec_inp, x_dec_out, y_enc_inp, y_dec_inp, y_dec_out)
-            t_log = model.merged_transformer_train(sess, x_enc_inp, x_dec_inp, x_dec_out, y_enc_inp, y_dec_inp, y_dec_out)
+            # t_log = model.merged_transformer_train(sess, x_enc_inp, x_dec_inp, x_dec_out, y_enc_inp, y_dec_inp, y_dec_out)
             # log = model.merged_train(sess, x_enc_inp, x_dec_inp, x_dec_out, y_enc_inp, y_dec_inp, y_dec_out)
-            # log = model.merged_seq_train(sess, x_enc_inp, x_dec_inp, x_dec_out, y_enc_inp, y_dec_inp, y_dec_out)
+            log = model.merged_seq_train(sess, x_enc_inp, x_dec_inp, x_dec_out, y_enc_inp, y_dec_inp, y_dec_out, atten_data)
             # model.show_parameters(sess)
 
             # get the summaries and iteration number so we can write summaries to tensorboard

@@ -61,24 +61,39 @@ class CNNDAILY(BaseDataLoader):
     def load_data(self, fpath="./corpus/cnndaily/train"):
         batch_size = self.batch_size
         x_data, y_data = [], []
+        atten_data = []
         while True:
             with open(fpath+".txt.src") as fsrc, open(fpath+".txt.tgt.tagged") as ftgt:  
                 for i, (src, tgt) in enumerate(zip(fsrc,ftgt)):
-                    tokens = src.split(" ")
-                    tokens_ids = [self.word2idx[t] if t in self.word2idx else UNK_TOKEN for t in tokens]
+                    tokens_src = src.strip().split(" ")
+                    tokens_ids = [self.word2idx[t] if t in self.word2idx else UNK_TOKEN for t in tokens_src]
                     x_data.append(tokens_ids)
-                    tgt = tgt.split(END_STRING)[0]
-                    tokens = tgt.split(" ")
-                    tokens_ids = [self.word2idx[t] if t in self.word2idx else UNK_TOKEN for t in tokens]
+                    tgt = tgt.split(START_STRING)[1]
+                    tgt = tgt.split(END_STRING)[0].strip()
+                    tokens_tgt = tgt.split(" ")
+                    tokens_ids = [self.word2idx[t] if t in self.word2idx else UNK_TOKEN for t in tokens_tgt]
                     y_data.append(tokens_ids)
+
+                    atten_label = np.zeros((self.max_output_len+1, self.max_input_len), dtype=int)
+                    for i,t in enumerate(tokens_tgt[:self.max_output_len]):
+                        for j,s in enumerate(tokens_src[:self.max_input_len]):
+                            if s == t: atten_label[i][j] = 1
+                    # print(np.sum(atten_label,1))
+                    # print(tokens_tgt)
+                    # print(tokens_src)
+                    atten_data.append(atten_label)
+
         
                     if len(x_data) == batch_size:
                         assert len(x_data) == len(y_data)
-                        yield self._pad(x_data, y_data)
+                        assert len(x_data) == len(atten_data)
+                        yield self._pad(x_data, y_data), atten_data
                         x_data, y_data = [], []
+                        atten_data = []
                 assert len(x_data) == len(y_data)
+                assert len(x_data) == len(atten_data)
                 if len(x_data) != 0:
-                    yield self._pad(x_data, y_data)
+                    yield self._pad(x_data, y_data), atten_data
                     x_data, y_data = [], []
             print("=====! EPOCH !======")
             break
@@ -127,22 +142,18 @@ class CNNDAILY(BaseDataLoader):
                 fout.write(info.strip()+"\n")
 
     def record_result(self, eval_log, finpath, frespaht, foutpath):
-        with open(finpath) as f, open(frespaht) as fres, open(foutpath, "w") as fout:  
-            for i, line in enumerate(f):
-                if i % 2 ==0:
-                    info = line[len("post: "):]
-                    fout.write("sor: "+info.strip()+"\n")
-                else:
-                    info = line[len("resp: "):]
-                    fout.write("ref: "+info.strip()+"\n")
+        with open(finpath+".txt.src") as fsrc, open(finpath+".txt.tgt.tagged") as ftgt, open(frespaht) as fres, open(foutpath, "w") as fout:  
+            for i, (src, tgt) in enumerate(zip(fsrc,ftgt)):
+                fout.write("sor: "+src.strip()+"\n")
+                fout.write("ref: "+tgt.strip()+"\n")
 
-                    res = fres.readline()
-                    ress = ""
-                    for r in res.split(" "):
-                        if r == END_STRING: break
-                        ress += r + " "
-                    fout.write("res: "+ress.strip()+"\n")
-                    fout.write("-"*20+"\n")
+                res = fres.readline()
+                ress = ""
+                for r in res.split(" "):
+                    if r == END_STRING: break
+                    ress += r + " "
+                fout.write("res: "+ress.strip()+"\n")
+                fout.write("-"*20+"\n")
             fout.write("\n\n\n")
             for metric, score in eval_log.items():
                 if metric == "bleu":

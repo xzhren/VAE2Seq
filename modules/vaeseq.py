@@ -36,6 +36,8 @@ class VAESEQ:
             self.y_enc_inp = tf.placeholder(tf.int32, [None, args.dec_max_len], name="y_enc_inp")
             self.y_dec_inp = tf.placeholder(tf.int32, [None, args.dec_max_len+1], name="y_dec_inp")
             self.y_dec_out = tf.placeholder(tf.int32, [None, args.dec_max_len+1], name="y_dec_out")
+            # attention data
+            self.attention_data = tf.placeholder(tf.int32, [None, args.dec_max_len+1, args.enc_max_len], name="attention_data")
             # train step
             self.global_step = tf.Variable(0, trainable=False)
 
@@ -50,12 +52,14 @@ class VAESEQ:
             decodervae_inputs = (self.y_enc_inp, self.y_dec_inp, self.y_dec_out, self.global_step)
             params['max_len'] = args.dec_max_len
             params['max_dec_len'] = args.dec_max_len + 1
-            self.decoder_model = BaseVAE(params, decodervae_inputs, "decoder")
+            # self.decoder_model = BaseVAE(params, decodervae_inputs, "decoder")
+            self.decoder_model = BaseVAE(params, decodervae_inputs, "decoder", 
+                        self.encoder_model.encoder_outputs, self.encoder_model.enc_seq_len, self.attention_data)
         with tf.variable_scope('transformer'):
             self.transformer = Transformer(self.encoder_model, self.decoder_model, params['graph_type'], self.global_step)
         with tf.variable_scope('decodervae/decoding', reuse=True):
-            self.training_rnn_out, self.training_logits = self.decoder_model._decoder_training(self.transformer.predition, reuse=True)
-            self.predicted_ids_op = self.decoder_model._decoder_inference(self.transformer.predition)
+            self.training_logits = self.decoder_model._decoder_training(self.transformer.predition, reuse=True)
+            self.predicted_ids_op, _ = self.decoder_model._decoder_inference(self.transformer.predition)
     
     def _gradient_clipping(self, loss_op):
         params = tf.trainable_variables()
@@ -177,14 +181,15 @@ class VAESEQ:
     #             x_enc_inp, x_dec_inp, x_dec_out, y_enc_inp, y_dec_inp, y_dec_out)
     #     return log
 
-    def merged_seq_train(self, sess, x_enc_inp, x_dec_inp, x_dec_out, y_enc_inp, y_dec_inp, y_dec_out):
+    def merged_seq_train(self, sess, x_enc_inp, x_dec_inp, x_dec_out, y_enc_inp, y_dec_inp, y_dec_out, atten_data):
         feed_dict = {
             self.x_enc_inp: x_enc_inp,
             self.x_dec_inp: x_dec_inp,
             self.x_dec_out: x_dec_out,
             self.y_enc_inp: y_enc_inp,
             self.y_dec_inp: y_dec_inp,
-            self.y_dec_out: y_dec_out
+            self.y_dec_out: y_dec_out,
+            self.attention_data: atten_data
         }
         _, summaries, loss, trans_loss, encoder_loss, decoder_loss, step = sess.run(
             [self.merged_train_op, self.merged_summary_op, self.merged_loss, self.merged_loss_seq, self.encoder_model.loss, self.decoder_model.loss, self.global_step],

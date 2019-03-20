@@ -3,11 +3,16 @@ import numpy as np
 
 from config import args
 from modules.modified import ModifiedBasicDecoder, ModifiedBeamSearchDecoder
+from modules.modified import ModifiedContextDecoder, ModifiedBeamSearchContextDecoder
 from data.data_reddit import START_TOKEN, END_TOKEN, PAD_TOKEN, UNK_STRING, PAD_STRING
 
 class BaseVAE:
-    def __init__(self, params, inputs, prefix):
+    def __init__(self, params, inputs, prefix, 
+            context_encoder_ouputs=None, enc_atten_len=None, enc_atten_label=None):
         self.params = params
+        self.context_encoder_ouputs = context_encoder_ouputs
+        self.enc_atten_len = enc_atten_len
+        self.enc_atten_label = enc_atten_label
         self._build_inputs(inputs)
         self._build_graph(prefix)
         self._init_summary(prefix)
@@ -32,6 +37,9 @@ class BaseVAE:
         with tf.variable_scope('loss'):
             # self.global_step = tf.Variable(0, trainable=False)
             self.nll_loss = self._nll_loss_fn()
+            if self.context_encoder_ouputs != None:
+                self.nll_loss += self._nll_loss_fn_pointer()
+
             self.kl_w = self._kl_w_fn(args.anneal_max, args.anneal_bias, self.global_step)
             self.kl_loss = self._kl_loss_fn(self.z_mean, self.z_logvar)
         
@@ -73,6 +81,9 @@ class BaseVAE:
             tf.summary.histogram(prefix+"_z_mean", self.z_mean)
             tf.summary.histogram(prefix+"_z_logvar", self.z_logvar)
             tf.summary.histogram(prefix+"_z", self.z)
+            if self.context_encoder_ouputs != None:
+                tf.summary.image(prefix+"attention", tf.expand_dims(self.attens[:1], -1))
+                # tf.summary.image("attention", tf.expand_dims(attention[:1], -1))
             self.merged_summary_op = tf.summary.merge_all()
 
     def _encode(self):
@@ -82,12 +93,13 @@ class BaseVAE:
             tied_embedding = tf.get_variable('tied_embedding',
                 [self.params['vocab_size'], args.embedding_dim],
                 tf.float32)
-            _, (state_fw, state_bw) = tf.nn.bidirectional_dynamic_rnn(
+            bi_encoder_outputs, (state_fw, state_bw) = tf.nn.bidirectional_dynamic_rnn(
                 cell_fw = self._rnn_cell(args.rnn_size//2),
                 cell_bw = self._rnn_cell(args.rnn_size//2), 
                 inputs = tf.nn.embedding_lookup(tied_embedding, self.enc_inp),
                 sequence_length = self.enc_seq_len,
                 dtype = tf.float32)
+            self.encoder_outputs = tf.concat(bi_encoder_outputs, axis=2)
 
             encoded_state = tf.concat((state_fw, state_bw), -1)
             self.tied_embedding = tied_embedding
@@ -104,8 +116,8 @@ class BaseVAE:
 
     def _decode(self, z):
         with tf.variable_scope('decoding'):
-            self.training_rnn_out, self.training_logits = self._decoder_training(z)
-            self.predicted_ids = self._decoder_inference(z)
+            self.training_logits = self._decoder_training(z)
+            self.predicted_ids, _ = self._decoder_inference(z)
 
     def _rnn_cell(self, rnn_size=None, reuse=False):
         rnn_size = args.rnn_size if rnn_size is None else rnn_size
@@ -128,7 +140,7 @@ class BaseVAE:
                 tf.zeros([shape_op[0], pad_size], dtype=tensor.dtype)
             ], 1)
         else:
-            raise NotImplemented(f'tensor with {len(shape)} dimentions.')
+            raise Exception(f'tensor with {len(shape)} dimentions.')
         return tensor
 
     def _decoder_training(self, z, reuse=False):
@@ -140,43 +152,87 @@ class BaseVAE:
         helper = tf.contrib.seq2seq.TrainingHelper(
             inputs = tf.nn.embedding_lookup(tied_embedding, self.dec_inp),
             sequence_length = self.dec_seq_len)
-        decoder = ModifiedBasicDecoder(
-            cell = self.decoder_cells,
-            helper = helper,
-            initial_state = init_state,
-            concat_z = z)
+        if self.context_encoder_ouputs != None:
+            decoder = ModifiedContextDecoder(
+                cell = self.decoder_cells,
+                helper = helper,
+                initial_state = init_state,
+                concat_z = z,
+                encoder_ouputs = self.context_encoder_ouputs)
+        else:
+            decoder = ModifiedBasicDecoder(
+                cell = self.decoder_cells,
+                helper = helper,
+                initial_state = init_state,
+                concat_z = z)
         # b x t x h
         decoder_output, _, _ = tf.contrib.seq2seq.dynamic_decode(
             decoder = decoder)
+        # print("train decoder_output:", decoder_output)
         logits = self._dynamic_time_pad(decoder_output.rnn_output, self.params['max_dec_len'])
-
+        # logits = decoder_output.rnn_output
+        if self.context_encoder_ouputs != None:
+            logits, attens = tf.split(logits, [args.rnn_size, args.enc_max_len], axis=2)
+            pointer_proj = tf.layers.Dense(1, activation=tf.sigmoid, _scope='pointer_proj_dense', _reuse=reuse)
+            pointer = pointer_proj.apply(logits) 
+            # print("logits:", logits)
+            # print("attens:", attens)
+            # print("pointer:", pointer)
+        
         # b x t x h => b x t x v ? # 64,?,200
         lin_proj = tf.layers.Dense(self.params['vocab_size'], _scope='out_proj_dense', _reuse=reuse)
         logits_dist = lin_proj.apply(logits) 
 
-        return logits, logits_dist
+        if self.context_encoder_ouputs != None:
+            logits_dist = logits_dist * (1-pointer)    
+            self.attens = attens * pointer
+
+        return logits_dist
 
     def _decoder_inference(self, z):
         tied_embedding = self.tied_embedding
         init_state = tf.layers.dense(z, args.rnn_size, tf.nn.elu, name="z_proj_state", reuse=True)
         tiled_z = tf.tile(tf.expand_dims(z, 1), [1, args.beam_width, 1])
 
-        decoder = ModifiedBeamSearchDecoder(
-            cell = self.decoder_cells,
-            embedding = tied_embedding,
-            start_tokens = tf.tile(tf.constant(
-                [self.params['word2idx']['<S>']], dtype=tf.int32), [self._batch_size]),
-            end_token = self.params['word2idx']['</S>'],
-            initial_state = tf.contrib.seq2seq.tile_batch(init_state, args.beam_width),
-            beam_width = args.beam_width,
-            output_layer = tf.layers.Dense(self.params['vocab_size'], _scope="out_proj_dense", _reuse=True),
-            concat_z = tiled_z)
+        if self.context_encoder_ouputs != None:
+            decoder = ModifiedBeamSearchContextDecoder(
+                cell = self.decoder_cells,
+                embedding = tied_embedding,
+                start_tokens = tf.tile(tf.constant(
+                    [self.params['word2idx']['<S>']], dtype=tf.int32), [self._batch_size]),
+                end_token = self.params['word2idx']['</S>'],
+                initial_state = tf.contrib.seq2seq.tile_batch(init_state, args.beam_width),
+                beam_width = args.beam_width,
+                output_layer = tf.layers.Dense(self.params['vocab_size'], _scope="out_proj_dense", _reuse=True),
+                concat_z = tiled_z,
+                encoder_ouputs = self.context_encoder_ouputs)
+        else:
+            decoder = ModifiedBeamSearchDecoder(
+                cell = self.decoder_cells,
+                embedding = tied_embedding,
+                start_tokens = tf.tile(tf.constant(
+                    [self.params['word2idx']['<S>']], dtype=tf.int32), [self._batch_size]),
+                end_token = self.params['word2idx']['</S>'],
+                initial_state = tf.contrib.seq2seq.tile_batch(init_state, args.beam_width),
+                beam_width = args.beam_width,
+                output_layer = tf.layers.Dense(self.params['vocab_size'], _scope="out_proj_dense", _reuse=True),
+                concat_z = tiled_z)
             
         decoder_output, _, _ = tf.contrib.seq2seq.dynamic_decode(
             decoder = decoder,
             maximum_iterations = 2*tf.reduce_max(self.enc_seq_len))
+        # print("inference decoder_output:", decoder_output)
 
-        return decoder_output.predicted_ids[:, :, 0]        
+
+        # if self.context_encoder_ouputs != None:
+        #     logits, attens = tf.split(logits, [args.rnn_size, args.enc_max_len], axis=2)
+        #     pointer_proj = tf.layers.Dense(1, _scope='pointer_proj_dense', _reuse=True)
+        #     pointer = pointer_proj.apply(logits) 
+        #     print("logits:", logits)
+        #     print("attens:", attens)
+        #     print("pointer:", pointer)
+    
+        return decoder_output.predicted_ids[:, :, 0], decoder_output.beam_search_decoder_output.scores[:, :, 0]    
     
     def _gradient_clipping(self, loss_op):
         params = tf.trainable_variables()
@@ -194,6 +250,23 @@ class BaseVAE:
             weights = mask,
             average_across_timesteps = False,
             average_across_batch = True))
+
+    def _nll_loss_fn_pointer(self):
+        mask_fn = lambda l : tf.sequence_mask(l, args.enc_max_len, dtype=tf.float32)
+        enc_mask = mask_fn(self.enc_atten_len) # b x t = 64 x 400
+        enc_mask = tf.expand_dims(enc_mask, 1) # b x 1 x t
+        mask_fn = lambda l : tf.sequence_mask(l, self.params['max_dec_len'], dtype=tf.float32)
+        dec_mask = mask_fn(self.dec_seq_len) # b x t = 64 x ?
+        # dec_mask = tf.expand_dims(dec_mask, 2) # b x 1 x t
+
+        label = tf.cast(self.enc_atten_label, tf.float32)
+        attens = self._dynamic_time_pad(self.attens, self.params['max_dec_len'])
+        # b x dec_l x enc_l
+        # return tf.reduce_sum(-tf.log(
+        #    tf.reduce_sum(attens * label * enc_mask, axis=2)+1e-13) * dec_mask)
+        return tf.reduce_sum(-
+        tf.reduce_sum(label * tf.log(attens+1e-13) + (1-label) * tf.log(1-attens+1e-13) * enc_mask, axis=2)
+           * dec_mask)
 
     def _kl_w_fn(self, anneal_max, anneal_bias, global_step):
         '''
