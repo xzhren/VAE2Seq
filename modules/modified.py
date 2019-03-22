@@ -1,6 +1,7 @@
 from tensorflow.python.ops import array_ops
 from tensorflow.contrib.seq2seq.python.ops.basic_decoder import BasicDecoder, BasicDecoderOutput
-from tensorflow.contrib.seq2seq.python.ops.beam_search_decoder import BeamSearchDecoder, BeamSearchDecoderOutput
+# from tensorflow.contrib.seq2seq.python.ops.beam_search_decoder import BeamSearchDecoder, BeamSearchDecoderOutput
+from modules.beam_search_decoder import BeamSearchDecoder, BeamSearchDecoderOutput
 
 import tensorflow as tf
 
@@ -95,10 +96,12 @@ class ModifiedBeamSearchContextDecoder(BeamSearchDecoder):
                  concat_z,
                  encoder_ouputs,
                  output_layer=None,
+                 pointer_layer=None,
                  length_penalty_weight=0.0):
         super().__init__(cell, embedding, start_tokens, end_token, initial_state, beam_width, output_layer, length_penalty_weight)
         self.z = concat_z
         self.encoder_ouputs = encoder_ouputs # b x t x e
+        self.pointer_layer = pointer_layer
 
     def initialize(self, name=None):
         (finished, start_inputs, initial_state) = super().initialize(name)
@@ -123,8 +126,9 @@ class ModifiedBeamSearchContextDecoder(BeamSearchDecoder):
 
         ### outputs_merged: state, attens
         attens = tf.transpose(attens, [0,2,1]) # bxbeamxt
-        outputs_merged = array_ops.concat([state, attens], -1) # bxbeamx[c+t]=bx5x656
-        outputs = BeamSearchDecoderOutput(outputs_merged, beam_search_output[1], beam_search_output[2])
+        pointer = self.pointer_layer.apply(state) # bxbeamx1
+        outputs_merged = array_ops.concat([attens, pointer], -1) # bxbeamx[c+t]=bx5x656
+        beam_search_output = BeamSearchDecoderOutput(outputs_merged, beam_search_output[1], beam_search_output[2], beam_search_output[3])
         ### end outputs_merged
         
         return (beam_search_output, beam_search_state, next_inputs, finished)

@@ -18,7 +18,7 @@ class VAESEQ:
         self._init_models(params)
         self._loss_optimizer(params['loss_type'])
         self.build_trans_loss(params['loss_type'])
-        self.print_parameters()
+        # self.print_parameters()
 
 
     def print_parameters(self):
@@ -37,7 +37,7 @@ class VAESEQ:
             self.y_dec_inp = tf.placeholder(tf.int32, [None, args.dec_max_len+1], name="y_dec_inp")
             self.y_dec_out = tf.placeholder(tf.int32, [None, args.dec_max_len+1], name="y_dec_out")
             # attention data
-            self.attention_data = tf.placeholder(tf.int32, [None, args.dec_max_len+1, args.enc_max_len], name="attention_data")
+            self.attention_data = tf.placeholder(tf.int32, [None, args.dec_max_len+1, args.enc_max_len], name="atten_data")
             # train step
             self.global_step = tf.Variable(0, trainable=False)
 
@@ -59,7 +59,8 @@ class VAESEQ:
             self.transformer = Transformer(self.encoder_model, self.decoder_model, params['graph_type'], self.global_step)
         with tf.variable_scope('decodervae/decoding', reuse=True):
             self.training_logits = self.decoder_model._decoder_training(self.transformer.predition, reuse=True)
-            self.predicted_ids_op, _ = self.decoder_model._decoder_inference(self.transformer.predition)
+            # self.predicted_ids_op, _ = self.decoder_model._decoder_inference(self.transformer.predition)
+            self.mask, self.attens_ids, self.predicted_ids = self.decoder_model._decoder_inference(self.transformer.predition)
     
     def _gradient_clipping(self, loss_op):
         params = tf.trainable_variables()
@@ -266,6 +267,36 @@ class VAESEQ:
         for predicted_ids in predicted_ids_lt:
             with open(outputfile, "a") as f:
                 result = ' '.join([idx2word[idx] for idx in predicted_ids])
+                end_index = result.find(" </S> ")
+                if end_index != -1:
+                    result = result[:end_index]
+                f.write('%s\n' % result)
+                # f.write('%s\n' % ' '.join([idx2word[idx] for idx in predicted_ids]))
+
+    def evaluation_pointer(self, sess, enc_inp, outputfile, raw_inp):
+        idx2word = self.params['idx2word']
+        
+        masks, aids, pids = sess.run([self.mask, self.attens_ids, self.predicted_ids], 
+            {self.x_enc_inp:enc_inp, self.decoder_model.enc_seq_len: [args.dec_max_len], self.decoder_model._batch_size: args.batch_size})
+
+        masks, aids, pids = masks[:,:,0], aids[:,:,0], pids[:,:,0]
+        for i, (mask, aid, pid) in enumerate(zip(masks, aids, pids)):
+            # print(i, mask, aid, pid)
+            # print(raw_inp[i])
+            with open(outputfile, "a") as f:
+                result = ''
+                for m, a, p in zip(mask, aid, pid):
+                    # print(m, a, p)
+                    if m == 1: result += idx2word[p] + " "
+                    elif m ==0:
+                        if a >= len(raw_inp[i]):
+                            result += " UNK "
+                        else:
+                            result += raw_inp[i][a] + " "
+                    else: print("ERRRRRRRRRRORR!!!")
+                # result = ' '.join([idx2word[idx] for idx in predicted_ids])
+                result = result.strip()
+                print(result)
                 end_index = result.find(" </S> ")
                 if end_index != -1:
                     result = result[:end_index]

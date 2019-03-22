@@ -20,7 +20,7 @@ def main():
         args.exp = args.graph_type
     args.enc_max_len =  400
     args.dec_max_len = 100
-    # args.vocab_limit = 
+    args.vocab_limit = 50000
     exp_path = "./saved/"+args.exp+"/"
     if not os.path.exists(exp_path):
         os.makedirs(exp_path)
@@ -78,12 +78,12 @@ def main():
         # batcher = dataloader.load_data(fpath=train_data_path)
         batcher = dataloader.load_data()
         for step in tqdm(range(EPOCH_STEPS)):
-            if keep_on_train_flag and step <= last_train_step: continue
-            if keep_on_train_flag and step == (last_train_step+1): keep_on_train_flag=False
+            if keep_on_train_flag and step < last_train_step: continue
+            if keep_on_train_flag and step == (last_train_step): keep_on_train_flag=False
 
             # get batch data
             try:
-                (x_enc_inp, x_dec_inp_full, x_dec_out, y_enc_inp, y_dec_inp_full, y_dec_out), atten_data = next(batcher)
+                (x_enc_inp, x_dec_inp_full, x_dec_out, y_enc_inp, y_dec_inp_full, y_dec_out), atten_data, _ = next(batcher)
                 x_dec_inp = dataloader.update_word_dropout(x_dec_inp_full)
                 y_dec_inp = dataloader.update_word_dropout(y_dec_inp_full)
             except StopIteration:
@@ -111,21 +111,21 @@ def main():
                 args.training = False
                 save_path = saver.save(sess, exp_path+model_name, global_step=train_step)
                 print("Model saved in file: %s" % save_path)
-                print("============= Show Encoder ===============")
-                model.show_encoder(sess, x_enc_inp[-1], x_dec_inp[-1], LOGGER)
-                print("============= Show Decoder ===============")
-                model.show_decoder(sess, y_enc_inp[-1], y_dec_inp[-1], LOGGER)
-                print("============= Show Sample ===============")
-                for i in range(3):
-                    model.show_sample(sess, x_enc_inp[i], y_dec_out[i], LOGGER)
+                # print("============= Show Encoder ===============")
+                # model.show_encoder(sess, x_enc_inp[-1], x_dec_inp[-1], LOGGER)
+                # print("============= Show Decoder ===============")
+                # model.show_decoder(sess, y_enc_inp[-1], y_dec_inp[-1], LOGGER)
+                # print("============= Show Sample ===============")
+                # for i in range(3):
+                #     model.show_sample(sess, x_enc_inp[i], y_dec_out[i], LOGGER)
                 LOGGER.flush()
                 args.training = True
                 
-        save_path = saver.save(sess, exp_path+model_name, global_step=train_step)
-        print("Model saved in file: %s" % save_path)
-        model.show_encoder(sess, x_enc_inp[-1], x_dec_inp[-1], LOGGER)
-        model.show_decoder(sess, y_enc_inp[-1], y_dec_inp[-1], LOGGER)
-        model.show_sample(sess, x_enc_inp[-1], y_dec_out[-1], LOGGER)
+        # save_path = saver.save(sess, exp_path+model_name, global_step=train_step)
+        # print("Model saved in file: %s" % save_path)
+        # model.show_encoder(sess, x_enc_inp[-1], x_dec_inp[-1], LOGGER)
+        # model.show_decoder(sess, y_enc_inp[-1], y_dec_inp[-1], LOGGER)
+        # model.show_sample(sess, x_enc_inp[-1], y_dec_out[-1], LOGGER)
 
 
 if __name__ == '__main__':

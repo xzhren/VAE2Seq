@@ -20,7 +20,7 @@ def main():
         args.exp = args.graph_type
     args.enc_max_len =  400
     args.dec_max_len = 100
-
+    args.vocab_limit = 50000
     exp_path = "./saved/"+args.exp+"/"
     args.training = False
     print(args)
@@ -67,12 +67,13 @@ def main():
         batcher = dataloader.load_data(fpath=test_file)
         for _ in tqdm(range((test_len-1)//args.batch_size+1)):
             try:
-                enc_inp, _, _, _, _, _ = next(batcher)
+                (enc_inp, _, _, _, _, _), _, raw_inp = next(batcher)
                 # dec_inp = dataloader.update_word_dropout(dec_inp_full)
             except StopIteration:
                 print("there are no more examples")
                 break
-            model.evaluation(sess, enc_inp, trans_file)
+            # model.evaluation(sess, enc_inp, trans_file)
+            model.evaluation_pointer(sess, enc_inp, trans_file, raw_inp)
 
     # Evaluation
     eval_log = {}

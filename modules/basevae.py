@@ -117,7 +117,10 @@ class BaseVAE:
     def _decode(self, z):
         with tf.variable_scope('decoding'):
             self.training_logits = self._decoder_training(z)
-            self.predicted_ids, _ = self._decoder_inference(z)
+            if self.context_encoder_ouputs != None:
+                self._decoder_inference(z)
+            else:
+                self.predicted_ids, _ = self._decoder_inference(z)
 
     def _rnn_cell(self, rnn_size=None, reuse=False):
         rnn_size = args.rnn_size if rnn_size is None else rnn_size
@@ -204,6 +207,7 @@ class BaseVAE:
                 initial_state = tf.contrib.seq2seq.tile_batch(init_state, args.beam_width),
                 beam_width = args.beam_width,
                 output_layer = tf.layers.Dense(self.params['vocab_size'], _scope="out_proj_dense", _reuse=True),
+                pointer_layer = tf.layers.Dense(1, activation=tf.sigmoid, _scope='pointer_proj_dense', _reuse=True),
                 concat_z = tiled_z,
                 encoder_ouputs = self.context_encoder_ouputs)
         else:
@@ -221,16 +225,35 @@ class BaseVAE:
         decoder_output, _, _ = tf.contrib.seq2seq.dynamic_decode(
             decoder = decoder,
             maximum_iterations = 2*tf.reduce_max(self.enc_seq_len))
-        # print("inference decoder_output:", decoder_output)
+        print("inference decoder_output:", decoder_output)
+        print("inference attens:", decoder_output.beam_search_decoder_output.attens) # ?, ?, 5, 400
+        print("inference scores:", decoder_output.beam_search_decoder_output.scores) # ?, ?, 5
 
 
-        # if self.context_encoder_ouputs != None:
-        #     logits, attens = tf.split(logits, [args.rnn_size, args.enc_max_len], axis=2)
-        #     pointer_proj = tf.layers.Dense(1, _scope='pointer_proj_dense', _reuse=True)
-        #     pointer = pointer_proj.apply(logits) 
-        #     print("logits:", logits)
-        #     print("attens:", attens)
-        #     print("pointer:", pointer)
+        if self.context_encoder_ouputs != None:
+            attens_raw = decoder_output.beam_search_decoder_output.attens
+            attens, pointer = tf.split(attens_raw, [args.enc_max_len, 1], axis=3)
+            pointer = tf.squeeze(pointer, axis=3) # b x l x beam
+
+
+            mask_fn = lambda l : tf.sequence_mask(l, args.enc_max_len, dtype=tf.float32)
+            enc_mask = mask_fn(self.enc_atten_len) # b x t = 64 x 400
+            enc_mask = tf.expand_dims(enc_mask, 1) # b x 1 x t
+            enc_mask = tf.expand_dims(enc_mask, 1) # b x 1 x 1 x t
+            attens = attens * enc_mask
+
+            attens_ids = tf.arg_max(attens, dimension=3) # b x l x beam x 1
+            # attens_ids = tf.squeeze(attens_ids, axis=3) # b x l x beam
+            attens_val = pointer*tf.reduce_max(attens, axis=3) # b x l x beam x 1
+            # attens_val = pointer*tf.squeeze(attens_val, axis=3) # b x l x beam
+            
+            predicted_ids = decoder_output.predicted_ids # b x l x beam
+            predicted_val = (1-pointer)*decoder_output.beam_search_decoder_output.scores # b x l x beam
+               
+            mask = tf.cast(tf.greater_equal(predicted_val, attens_val), tf.int32)
+            # print("attens_ids:", attens_ids)
+            # print("pointer:", pointer)
+            return mask, attens_ids, predicted_ids
     
         return decoder_output.predicted_ids[:, :, 0], decoder_output.beam_search_decoder_output.scores[:, :, 0]    
     

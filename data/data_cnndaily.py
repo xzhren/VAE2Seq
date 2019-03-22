@@ -62,6 +62,7 @@ class CNNDAILY(BaseDataLoader):
         batch_size = self.batch_size
         x_data, y_data = [], []
         atten_data = []
+        src_data = []
         while True:
             with open(fpath+".txt.src") as fsrc, open(fpath+".txt.tgt.tagged") as ftgt:  
                 for i, (src, tgt) in enumerate(zip(fsrc,ftgt)):
@@ -82,18 +83,20 @@ class CNNDAILY(BaseDataLoader):
                     # print(tokens_tgt)
                     # print(tokens_src)
                     atten_data.append(atten_label)
+                    src_data.append(tokens_src[:self.max_output_len])
 
         
                     if len(x_data) == batch_size:
                         assert len(x_data) == len(y_data)
                         assert len(x_data) == len(atten_data)
-                        yield self._pad(x_data, y_data), atten_data
+                        yield self._pad(x_data, y_data), atten_data, src_data
                         x_data, y_data = [], []
                         atten_data = []
+                        src_data = []
                 assert len(x_data) == len(y_data)
                 assert len(x_data) == len(atten_data)
                 if len(x_data) != 0:
-                    yield self._pad(x_data, y_data), atten_data
+                    yield self._pad(x_data, y_data), atten_data, src_data
                     x_data, y_data = [], []
             print("=====! EPOCH !======")
             break
