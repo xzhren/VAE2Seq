@@ -5,7 +5,7 @@ import tensorflow as tf
 from tqdm import tqdm
 import os
 
-from data_reddit import REDDIT
+from data_code import CODE, TEST_DATA_SIZE, TRADIN_DATA_SIZE
 from model_vae import VRAE
 from config import args
 from measures import evaluation_utils
@@ -13,25 +13,31 @@ from measures import evaluation_utils
 
 def main():
     ## CUDA
-    os.environ["CUDA_VISIBLE_DEVICES"] = "2"
+    os.environ["CUDA_VISIBLE_DEVICES"] = str(args.cuda)
+
+    args.enc_max_len = 50
+    args.dec_max_len = 30
+    args.vocab_limit = 10000
+    dataloader = CODE(batch_size=args.batch_size, vocab_limit=args.vocab_limit, max_input_len=args.enc_max_len, max_output_len=args.dec_max_len)
 
     ## Parameters
-    dataloader = REDDIT(batch_size=64, vocab_limit=35000, max_input_len=150, max_output_len=150)
     params = {
-        'vocab_size': len(dataloader.word2idx),
+        'vocab_size': len(dataloader.idx2word),
         'word2idx': dataloader.word2idx,
-        'idx2word': dataloader.idx2word,}
+        'idx2word': dataloader.idx2word,
+        'token2idx': dataloader.token2idx,
+        'idx2token': dataloader.idx2token}
     print('Vocab Size:', params['vocab_size'])
-    args.max_len = 150
-    args.batch_size = 64
-    args.max_dec_len = 151
+    args.max_len = args.enc_max_len
+    # args.batch_size = 64
+    args.max_dec_len = args.dec_max_len
     args.display_info_step = 10000
     print(args)
 
     ## ModelInit    
     model = VRAE(params)
-    exp_path = "./saved/vaeseq/"
-    model_name = "vrae.ckpt"
+    exp_path = "./saved/"+args.exp+"/"
+    model_name = "vaeseq.ckpt"
 
     ## Session
     saver = tf.train.Saver()
@@ -49,20 +55,19 @@ def main():
         ref_file = exp_path+"test.input.txt"
         trans_file = exp_path+"test.output.txt"
         result_file = exp_path+"test."+restore_path.split("-")[-1]+".result.txt"
-        test_file = "./corpus/reddit/test.txt"
 
         # Test Dir
-        dataloader.trans_in_ref(finpath=test_file, foutpath=ref_file)
+        dataloader.trans_in_ref(foutpath=ref_file)
         with open(trans_file, "w") as f:
             f.write("")
         print("[PAEPEAR DATASET]")
 
         # Test DataSet
-        test_len = 20000
-        batcher = dataloader._load_data(fpath=test_file)
+        test_len = TEST_DATA_SIZE
+        batcher = dataloader.load_train_data(testflag=True)
         for _ in tqdm(range((test_len-1)//args.batch_size+1)):
             try:
-                enc_inp, dec_inp_full, dec_out = next(batcher)
+                enc_inp, _, _, _, _, _ = next(batcher)
                 # dec_inp = dataloader.update_word_dropout(dec_inp_full)
             except StopIteration:
                 print("there are no more examples")
@@ -93,7 +98,7 @@ def main():
     eval_log['selfbleu-2'] = selfbleuobj.get_score()
 
     # Record Log
-    dataloader.record_result(eval_log, finpath=test_file, frespaht=trans_file, foutpath=result_file)
+    dataloader.record_result(eval_log, frespaht=trans_file, foutpath=result_file)
     
 
 if __name__ == '__main__':

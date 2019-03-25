@@ -116,7 +116,7 @@ def main():
                 print("============= Show Encoder ===============")
                 model.show_encoder(sess, x_enc_inp[-1], x_dec_inp[-1], LOGGER)
                 print("============= Show Decoder ===============")
-                model.show_decoder(sess, y_enc_inp[-1], y_dec_inp[-1], LOGGER)
+                model.show_decoder(sess, y_enc_inp[-1], y_dec_inp[-1], LOGGER, x_enc_inp[-1])
                 print("============= Show Sample ===============")
                 for i in range(3):
                     model.show_sample(sess, x_enc_inp[i], y_dec_out[i], LOGGER)
@@ -126,7 +126,7 @@ def main():
         save_path = saver.save(sess, exp_path+model_name, global_step=train_step)
         print("Model saved in file: %s" % save_path)
         model.show_encoder(sess, x_enc_inp[-1], x_dec_inp[-1], LOGGER)
-        model.show_decoder(sess, y_enc_inp[-1], y_dec_inp[-1], LOGGER)
+        model.show_decoder(sess, y_enc_inp[-1], y_dec_inp[-1], LOGGER, x_enc_inp[-1])
         model.show_sample(sess, x_enc_inp[-1], y_dec_out[-1], LOGGER)
 
 

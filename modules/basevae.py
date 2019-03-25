@@ -366,7 +366,7 @@ class BaseVAE:
                 'kl_w': kl_w, 'kl_loss': kl_loss, 'step': step}
 
 
-    def reconstruct(self, sess, sentence, sentence_dropped):
+    def reconstruct(self, sess, sentence, sentence_dropped, sentence_feeddict=None):
         if self.prefix == "decoder":
             idx2word = self.params['idx2word']
         elif self.prefix == "encoder":
@@ -374,7 +374,10 @@ class BaseVAE:
         infos = ""
         infos += 'I: %s\n' % ' '.join([idx2word[idx] for idx in sentence if idx != PAD_TOKEN])
         infos += 'D: %s\n' % ' '.join([idx2word[idx] for idx in sentence_dropped if idx != PAD_TOKEN])
-        predicted_ids = sess.run(self.predicted_ids, {self.enc_inp: np.atleast_2d(sentence)})[0]
+        if self.isContext or self.isPointer:
+            predicted_ids = sess.run(self.predicted_ids, sentence_feeddict)[0]
+        else:
+            predicted_ids = sess.run(self.predicted_ids, {self.enc_inp: np.atleast_2d(sentence)})[0]
         infos += 'O: %s\n' % ' '.join([idx2word[idx] for idx in predicted_ids if idx != PAD_TOKEN])
         infos += '-'*12 + "\n"
         return infos

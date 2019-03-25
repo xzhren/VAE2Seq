@@ -236,9 +236,12 @@ class VAESEQ:
         LOGGER.write(infos)
         print(infos.strip())
 
-    def show_decoder(self, sess, x, y, LOGGER):
+    def show_decoder(self, sess, x, y, LOGGER, x_raw):
         # self.decoder_model.generate(sess)
-        infos = self.decoder_model.reconstruct(sess, x, y)
+        feeddict = {}
+        feeddict[self.x_enc_inp] = np.atleast_2d(x_raw)
+        feeddict[self.y_enc_inp] = np.atleast_2d(x)
+        infos = self.decoder_model.reconstruct(sess, x, y, feeddict)
         # self.decoder_model.customized_reconstruct(sess, 'i love this film and i think it is one of the best films')
         # self.decoder_model.customized_reconstruct(sess, 'this movie is a waste of time and there is no point to watch it')
         LOGGER.write(infos)
