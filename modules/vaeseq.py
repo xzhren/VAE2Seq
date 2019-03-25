@@ -177,10 +177,20 @@ class VAESEQ:
         log = self.transformer.train_session(sess, feed_dict, train_loss)
         return log
         
-    # def merged_train(self, sess, x_enc_inp, x_dec_inp, x_dec_out, y_enc_inp, y_dec_inp, y_dec_out):
-    #     log = self.transformer.merged_train_session(sess, self.encoder_model, self.decoder_model,
-    #             x_enc_inp, x_dec_inp, x_dec_out, y_enc_inp, y_dec_inp, y_dec_out)
-    #     return log
+    def merged_train(self, sess, x_enc_inp, x_dec_inp, x_dec_out, y_enc_inp, y_dec_inp, y_dec_out):
+        feed_dict = {
+            self.x_enc_inp: x_enc_inp,
+            self.x_dec_inp: x_dec_inp,
+            self.x_dec_out: x_dec_out,
+            self.y_enc_inp: y_enc_inp,
+            self.y_dec_inp: y_dec_inp,
+            self.y_dec_out: y_dec_out
+        }
+        _, summaries, loss, trans_loss, encoder_loss, decoder_loss, step = sess.run(
+            [self.merged_train_op, self.merged_summary_op, self.merged_loss, self.merged_loss_seq, self.encoder_model.loss, self.decoder_model.loss, self.global_step],
+                feed_dict)
+        return {'summaries': summaries, 'merged_loss': loss, 'trans_loss': trans_loss, 
+            'encoder_loss': encoder_loss, 'decoder_loss': decoder_loss, 'step': step}
 
     def merged_seq_train(self, sess, x_enc_inp, x_dec_inp, x_dec_out, y_enc_inp, y_dec_inp, y_dec_out, atten_data):
         feed_dict = {
