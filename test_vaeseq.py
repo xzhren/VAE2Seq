@@ -21,6 +21,8 @@ def main():
         
     exp_path = "./saved/"+args.exp+"/"
     args.training = False
+    args.enc_max_len = 150
+    args.dec_max_len = 150
     print(args)
 
     ## DataLoader

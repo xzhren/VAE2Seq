@@ -26,6 +26,8 @@ def main():
     train_data_len = 3384185
     train_data_path = args.train_data
     EPOCH_STEPS = (train_data_len-1)//args.batch_size+1
+    args.enc_max_len = 150
+    args.dec_max_len = 150
     print(args)
 
     ## DataLoader

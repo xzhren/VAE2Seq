@@ -39,6 +39,8 @@ class BaseVAE:
             self.nll_loss = self._nll_loss_fn()
             if self.context_encoder_ouputs != None:
                 self.nll_loss += self._nll_loss_fn_pointer()
+                self.pointer_loss = self._nll_loss_fn_pointer()
+                self.raw_nll_loss = self._nll_loss_fn()
 
             self.kl_w = self._kl_w_fn(args.anneal_max, args.anneal_bias, self.global_step)
             self.kl_loss = self._kl_loss_fn(self.z_mean, self.z_logvar)
@@ -82,7 +84,9 @@ class BaseVAE:
             tf.summary.histogram(prefix+"_z_logvar", self.z_logvar)
             tf.summary.histogram(prefix+"_z", self.z)
             if self.context_encoder_ouputs != None:
-                tf.summary.image(prefix+"attention", tf.expand_dims(self.attens[:1], -1))
+                tf.summary.scalar(prefix+"_pointer_loss", self.pointer_loss)
+                tf.summary.scalar(prefix+"_raw_nll_loss", self.raw_nll_loss)
+                tf.summary.image(prefix+"attention", tf.expand_dims(self.attens, -1))
                 # tf.summary.image("attention", tf.expand_dims(attention[:1], -1))
             self.merged_summary_op = tf.summary.merge_all()
 
