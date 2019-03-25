@@ -93,7 +93,7 @@ class CODE(BaseDataLoader):
         batch_size = self.batch_size
         x_data, y_data = [], []
         while True:
-            for i in tqdm(range(0, DATA_SIZE)):
+            for i in range(DATA_SIZE):
                 tokens = get_hdfsf_item(i, idx_tokens, txt_tokens)
                 desc = get_hdfsf_item(i, idx_desc, txt_desc)
                 x_data.append(tokens)
@@ -160,7 +160,7 @@ class CODE(BaseDataLoader):
         idx_desc = table_desc.get_node('/indices')
 
         with open(foutpath, "w") as fout:  
-            for i in tqdm(range(0, TEST_DATA_SIZE)):
+            for i in range(TEST_DATA_SIZE):
                 # tokens = get_hdfsf_item(i, idx_tokens, txt_tokens)
                 desc = get_hdfsf_item(i, idx_desc, txt_desc)
                 desc = [self.idx2word[d] for d in desc]    
@@ -178,7 +178,7 @@ class CODE(BaseDataLoader):
         idx_desc = table_desc.get_node('/indices')
 
         with open(frespaht) as fres, open(foutpath, "w") as fout:  
-            for i in tqdm(range(0, TEST_DATA_SIZE)):
+            for i in range(TEST_DATA_SIZE):
                 tokens = get_hdfsf_item(i, idx_tokens, txt_tokens)
                 desc = get_hdfsf_item(i, idx_desc, txt_desc)
                 tokens = [self.idx2token[t] for t in tokens]  

@@ -52,9 +52,15 @@ class VAESEQ:
             decodervae_inputs = (self.y_enc_inp, self.y_dec_inp, self.y_dec_out, self.global_step)
             params['max_len'] = args.dec_max_len
             params['max_dec_len'] = args.dec_max_len + 1
-            self.decoder_model = BaseVAE(params, decodervae_inputs, "decoder")
-            # self.decoder_model = BaseVAE(params, decodervae_inputs, "decoder", 
-                        # self.encoder_model.encoder_outputs, self.encoder_model.enc_seq_len, self.attention_data)
+            
+            if args.isPointer:
+                self.decoder_model = BaseVAE(params, decodervae_inputs, "decoder", 
+                            self.encoder_model.encoder_outputs, self.encoder_model.enc_seq_len, self.attention_data)
+            elif args.isContext:
+                self.decoder_model = BaseVAE(params, decodervae_inputs, "decoder", self.encoder_model.encoder_outputs)
+            else:
+                self.decoder_model = BaseVAE(params, decodervae_inputs, "decoder")
+
         with tf.variable_scope('transformer'):
             self.transformer = Transformer(self.encoder_model, self.decoder_model, params['graph_type'], self.global_step)
         with tf.variable_scope('decodervae/decoding', reuse=True):
