@@ -16,4 +16,7 @@ parser.add_argument('--anneal_bias', type=int, default=6000)
 parser.add_argument('--num_epoch', type=int, default=30)
 parser.add_argument('--display_loss_step', type=int, default=50)
 
+parser.add_argument('--cuda', type=int, default=2)
+parser.add_argument('--exp', type=str, default="NONE")
+
 args = parser.parse_args()
