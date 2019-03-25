@@ -5,7 +5,7 @@ import tensorflow as tf
 from tqdm import tqdm
 import os
 
-from data.data_code import CODE
+from data.data_code import CODE, TEST_DATA_SIZE, TRADIN_DATA_SIZE
 from modules.vaeseq import VAESEQ
 from utils.train_utils import show_loss
 from utils.train_utils import summary_flush
@@ -23,7 +23,7 @@ def main():
     if not os.path.exists(exp_path):
         os.makedirs(exp_path)
     model_name = args.model_name
-    train_data_len = 2906408
+    train_data_len = TRADIN_DATA_SIZE
     # train_data_path = args.train_data
     EPOCH_STEPS = (train_data_len-1)//args.batch_size+1
     args.enc_max_len = 50

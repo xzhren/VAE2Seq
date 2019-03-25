@@ -32,6 +32,14 @@ UNK_STRING = 'UNK'
 START_STRING = '<S>'
 END_STRING = '</S>'
 
+TRADIN_DATA_SIZE = 2906408
+TEST_DATA_SIZE = 9222
+
+def get_hdfsf_item(offset, idx_h5, txt_h5):
+    length, pos = idx_h5[offset]['length'], idx_h5[offset]['pos']
+    txts = txt_h5[pos:pos + length].astype('int64')
+    return txts
+
 class CODE(BaseDataLoader):
     def __init__(self, batch_size, vocab_limit, max_input_len, max_output_len):
         super().__init__()
@@ -65,30 +73,29 @@ class CODE(BaseDataLoader):
         print("sample vocab", list(vocab_desc.items())[:10])
         
 
-    def load_train_data(self):
+    def load_train_data(self, testflag=False):
         data_dir = '/home/renxinzhang/renxingzhang/paper/deep-code-search/data/nodup/'
-        table_tokens = tables.open_file(data_dir+'train.tokens.h5')
+        if testflag:
+            table_tokens = tables.open_file(data_dir+'test.tokens.h5')
+            table_desc = tables.open_file(data_dir+'test.desc.h5')
+            DATA_SIZE = TEST_DATA_SIZE
+        else:
+            table_tokens = tables.open_file(data_dir+'train.tokens.h5')
+            table_desc = tables.open_file(data_dir+'train.desc.h5')
+            DATA_SIZE = TRADIN_DATA_SIZE
+        print(table_tokens)
+        print(table_desc)
         txt_tokens = table_tokens.get_node('/phrases')
         idx_tokens = table_tokens.get_node('/indices')
-        table_desc = tables.open_file(data_dir+'train.desc.h5')
         txt_desc = table_desc.get_node('/phrases')
         idx_desc = table_desc.get_node('/indices')
-
-        def get_tokens_item(offset):
-            length, pos = idx_tokens[offset]['length'], idx_tokens[offset]['pos']
-            tokens = txt_tokens[pos:pos + length].astype('int64')
-            return tokens
-        def get_desc_item(offset):
-            length, pos = idx_desc[offset]['length'], idx_desc[offset]['pos']
-            desc = txt_desc[pos:pos + length].astype('int64')
-            return desc
 
         batch_size = self.batch_size
         x_data, y_data = [], []
         while True:
-            for i in tqdm(range(0, 2906408)):
-                tokens = get_tokens_item(i)
-                desc = get_desc_item(i)
+            for i in tqdm(range(0, DATA_SIZE)):
+                tokens = get_hdfsf_item(i, idx_tokens, txt_tokens)
+                desc = get_hdfsf_item(i, idx_desc, txt_desc)
                 x_data.append(tokens)
                 y_data.append(desc)
                 if len(x_data) == batch_size:
@@ -141,30 +148,51 @@ class CODE(BaseDataLoader):
         dec_inp = self._word_dropout(dec_inp_full)
         return dec_inp
 
-    def trans_in_ref(self, finpath="./corpus/reddit/test.txt", foutpath="./saved/test.input.txt"):
-        with open(finpath) as f, open(foutpath, "w") as fout:  
-            for i, line in enumerate(f):
-                if i % 2 == 1:
-                    info = line[len("resp: "):]
-                    fout.write(info.strip()+"\n")
+    def trans_in_ref(self, foutpath="./saved/test.input.txt"):
+        data_dir = '/home/renxinzhang/renxingzhang/paper/deep-code-search/data/nodup/'
+        table_tokens = tables.open_file(data_dir+'test.tokens.h5')
+        table_desc = tables.open_file(data_dir+'test.desc.h5')
+        print(table_tokens)
+        print(table_desc)
+        txt_tokens = table_tokens.get_node('/phrases')
+        idx_tokens = table_tokens.get_node('/indices')
+        txt_desc = table_desc.get_node('/phrases')
+        idx_desc = table_desc.get_node('/indices')
 
-    def record_result(self, eval_log, finpath, frespaht, foutpath):
-        with open(finpath) as f, open(frespaht) as fres, open(foutpath, "w") as fout:  
-            for i, line in enumerate(f):
-                if i % 2 ==0:
-                    info = line[len("post: "):]
-                    fout.write("sor: "+info.strip()+"\n")
-                else:
-                    info = line[len("resp: "):]
-                    fout.write("ref: "+info.strip()+"\n")
+        with open(foutpath, "w") as fout:  
+            for i in tqdm(range(0, TEST_DATA_SIZE)):
+                # tokens = get_hdfsf_item(i, idx_tokens, txt_tokens)
+                desc = get_hdfsf_item(i, idx_desc, txt_desc)
+                desc = [self.idx2word[d] for d in desc]    
+                fout.write(" ".join(desc)+"\n")
 
-                    res = fres.readline()
-                    ress = ""
-                    for r in res.split(" "):
-                        if r == "</S>": break
-                        ress += r + " "
-                    fout.write("res: "+ress.strip()+"\n")
-                    fout.write("-"*20+"\n")
+    def record_result(self, eval_log, frespaht, foutpath):
+        data_dir = '/home/renxinzhang/renxingzhang/paper/deep-code-search/data/nodup/'
+        table_tokens = tables.open_file(data_dir+'test.tokens.h5')
+        table_desc = tables.open_file(data_dir+'test.desc.h5')
+        print(table_tokens)
+        print(table_desc)
+        txt_tokens = table_tokens.get_node('/phrases')
+        idx_tokens = table_tokens.get_node('/indices')
+        txt_desc = table_desc.get_node('/phrases')
+        idx_desc = table_desc.get_node('/indices')
+
+        with open(frespaht) as fres, open(foutpath, "w") as fout:  
+            for i in tqdm(range(0, TEST_DATA_SIZE)):
+                tokens = get_hdfsf_item(i, idx_tokens, txt_tokens)
+                desc = get_hdfsf_item(i, idx_desc, txt_desc)
+                tokens = [self.idx2token[t] for t in tokens]  
+                desc = [self.idx2word[d] for d in desc]    
+                fout.write("sor: "+" ".join(tokens)+"\n")
+                fout.write("ref: "+" ".join(desc)+"\n")
+
+                res = fres.readline()
+                ress = ""
+                for r in res.split(" "):
+                    if r == "</S>": break
+                    ress += r + " "
+                fout.write("res: "+ress.strip()+"\n")
+                fout.write("-"*20+"\n")
             fout.write("\n\n\n")
             for metric, score in eval_log.items():
                 if metric == "bleu":

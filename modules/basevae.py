@@ -9,6 +9,7 @@ from data.data_reddit import START_TOKEN, END_TOKEN, PAD_TOKEN, UNK_STRING, PAD_
 class BaseVAE:
     def __init__(self, params, inputs, prefix, 
             context_encoder_ouputs=None, enc_atten_len=None, enc_atten_label=None):
+        self.prefix = prefix
         self.params = params
         self.context_encoder_ouputs = context_encoder_ouputs
         self.enc_atten_len = enc_atten_len
@@ -331,7 +332,10 @@ class BaseVAE:
 
 
     def reconstruct(self, sess, sentence, sentence_dropped):
-        idx2word = self.params['idx2word']
+        if self.prefix == "decoder":
+            idx2word = self.params['idx2word']
+        elif self.prefix == "encoder":
+            idx2word = self.params['idx2token']
         infos = ""
         infos += 'I: %s\n' % ' '.join([idx2word[idx] for idx in sentence if idx != PAD_TOKEN])
         infos += 'D: %s\n' % ' '.join([idx2word[idx] for idx in sentence_dropped if idx != PAD_TOKEN])
