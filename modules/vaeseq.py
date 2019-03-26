@@ -292,6 +292,16 @@ class VAESEQ:
                 f.write('%s\n' % result)
                 # f.write('%s\n' % ' '.join([idx2word[idx] for idx in predicted_ids]))
 
+    def export_vectors(self, sess, enc_inp, dec_inp):
+        code_mean, code_logvar = sess.run(
+            [self.transformer.predition_mean, self.transformer.predition_logvar], 
+            {self.x_enc_inp:enc_inp})
+        desc_mean, desc_logvar = sess.run(
+            [self.decoder_model.z_mean, self.decoder_model.z_logvar], 
+            {self.y_enc_inp:dec_inp})
+        return code_mean, code_logvar, desc_mean, desc_logvar
+
+
     def evaluation_pointer(self, sess, enc_inp, outputfile, raw_inp):
         idx2word = self.params['idx2word']
         

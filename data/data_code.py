@@ -109,6 +109,35 @@ class CODE(BaseDataLoader):
             print("=====! EPOCH !======")
             break
 
+    def load_export_data(self, DATA_SIZE):
+        data_dir = './corpus/code/'
+        table_tokens = tables.open_file(data_dir+'test2.tokens.h5')
+        table_desc = tables.open_file(data_dir+'test2.desc.h5')
+        print(table_tokens)
+        print(table_desc)
+        txt_tokens = table_tokens.get_node('/phrases')
+        idx_tokens = table_tokens.get_node('/indices')
+        txt_desc = table_desc.get_node('/phrases')
+        idx_desc = table_desc.get_node('/indices')
+
+        batch_size = self.batch_size
+        x_data, y_data = [], []
+        
+        for i in range(DATA_SIZE):
+            tokens = get_hdfsf_item(i, idx_tokens, txt_tokens)
+            desc = get_hdfsf_item(i, idx_desc, txt_desc)
+            x_data.append(tokens)
+            y_data.append(desc)
+            if len(x_data) == batch_size:
+                assert len(x_data) == len(y_data)
+                yield self._pad(x_data, y_data)
+                x_data, y_data = [], []
+        assert len(x_data) == len(y_data)
+        if len(x_data) != 0:
+            yield self._pad(x_data, y_data)
+            x_data, y_data = [], []
+        print("=====! EPOCH !======")
+
     def _pad_one(self, data, maxlen):
         enc_inp = []
         dec_inp = []
