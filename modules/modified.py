@@ -1,7 +1,8 @@
 from tensorflow.python.ops import array_ops
 from tensorflow.contrib.seq2seq.python.ops.basic_decoder import BasicDecoder, BasicDecoderOutput
-# from tensorflow.contrib.seq2seq.python.ops.beam_search_decoder import BeamSearchDecoder, BeamSearchDecoderOutput
-from modules.beam_search_decoder import BeamSearchDecoder, BeamSearchDecoderOutput
+from tensorflow.contrib.seq2seq.python.ops.beam_search_decoder import BeamSearchDecoder, BeamSearchDecoderOutput
+from modules.beam_search_decoder import BeamSearchDecoder as RewriteBeamSearchDecoder
+from modules.beam_search_decoder import BeamSearchDecoderOutput as RewriteBeamSearchDecoderOutput
 
 import tensorflow as tf
 
@@ -152,7 +153,7 @@ class PointerDecoder(BasicDecoder):
         return (outputs, next_state, next_inputs, finished)
 
 
-class PointerBeamSearchDecoder(BeamSearchDecoder):
+class PointerBeamSearchDecoder(RewriteBeamSearchDecoder):
     def __init__(self,
                  cell,
                  embedding,
@@ -195,7 +196,7 @@ class PointerBeamSearchDecoder(BeamSearchDecoder):
         attens = tf.transpose(attens, [0,2,1]) # bxbeamxt
         pointer = self.pointer_layer.apply(state) # bxbeamx1
         outputs_merged = array_ops.concat([attens, pointer], -1) # bxbeamx[c+t]=bx5x656
-        beam_search_output = BeamSearchDecoderOutput(outputs_merged, beam_search_output[1], beam_search_output[2], beam_search_output[3])
+        beam_search_output = RewriteBeamSearchDecoderOutput(outputs_merged, beam_search_output[1], beam_search_output[2], beam_search_output[3])
         ### end outputs_merged
         
         return (beam_search_output, beam_search_state, next_inputs, finished)

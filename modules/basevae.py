@@ -266,8 +266,8 @@ class BaseVAE:
             decoder = decoder,
             maximum_iterations = 2*tf.reduce_max(self.enc_seq_len))
         print("inference decoder_output:", decoder_output)
-        print("inference attens:", decoder_output.beam_search_decoder_output.attens) # ?, ?, 5, 400
-        print("inference scores:", decoder_output.beam_search_decoder_output.scores) # ?, ?, 5
+        # print("inference attens:", decoder_output.beam_search_decoder_output.attens) # ?, ?, 5, 400
+        # print("inference scores:", decoder_output.beam_search_decoder_output.scores) # ?, ?, 5
 
 
         if self.isPointer:
