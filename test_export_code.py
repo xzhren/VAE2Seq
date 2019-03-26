@@ -76,9 +76,9 @@ def main():
                 code_logvar_np = np.vstack([code_logvar_np, code_logvar])
                 desc_logvar_np = np.vstack([desc_logvar_np, desc_logvar])
         print("code_mean_np:", np.shape(code_mean_np), np.save(result_file+"code_mean.npy",code_mean_np))
-        print("desc_mean_np:", np.shape(desc_mean_np), np.save(result_file+"desc_mean.npy",code_mean_np))
-        print("code_logvar_np:", np.shape(code_logvar_np), np.save(result_file+"code_logvar.npy",code_mean_np))
-        print("desc_logvar_np:", np.shape(desc_logvar_np), np.save(result_file+"desc_logvar.npy",code_mean_np))
+        print("desc_mean_np:", np.shape(desc_mean_np), np.save(result_file+"desc_mean.npy",desc_mean_np))
+        print("code_logvar_np:", np.shape(code_logvar_np), np.save(result_file+"code_logvar.npy",code_logvar_np))
+        print("desc_logvar_np:", np.shape(desc_logvar_np), np.save(result_file+"desc_logvar.npy",desc_logvar_np))
     
 
 if __name__ == '__main__':
