@@ -199,7 +199,8 @@ class BaseVAE:
         # b x t x h
         decoder_output, _, _ = tf.contrib.seq2seq.dynamic_decode(
             decoder = decoder)
-        # print("train decoder_output:", decoder_output)
+        print("train decoder_output:", decoder_output)
+        
         logits = self._dynamic_time_pad(decoder_output.rnn_output, self.params['max_dec_len'])
         # logits = decoder_output.rnn_output
         if self.isPointer:
