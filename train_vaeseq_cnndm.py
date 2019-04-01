@@ -26,6 +26,7 @@ def main():
         os.makedirs(exp_path)
     model_name = args.model_name
     train_data_len = 287227
+    args.data_len = 287227
     train_data_path = args.train_data
     EPOCH_STEPS = (train_data_len-1)//args.batch_size+1
     print(args)
@@ -36,6 +37,7 @@ def main():
         'vocab_size': len(dataloader.word2idx),
         'word2idx': dataloader.word2idx,
         'idx2word': dataloader.idx2word,
+        'idx2token': dataloader.idx2word,
         'loss_type': args.loss_type,
         'graph_type': args.graph_type}
     print('Vocab Size:', params['vocab_size'])

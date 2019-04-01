@@ -63,8 +63,8 @@ class BaseVAE:
             self.kl_loss = self._kl_loss_fn(self.z_mean, self.z_logvar)
         
             #######
-            # loss_op = self.nll_loss + self.kl_w * self.kl_loss
-            loss_op = self.nll_loss
+            loss_op = self.nll_loss + self.kl_w * self.kl_loss
+            # loss_op = self.nll_loss
             ######
             self.loss = loss_op
         
@@ -204,9 +204,10 @@ class BaseVAE:
         logits = self._dynamic_time_pad(decoder_output.rnn_output, self.params['max_dec_len'])
         # logits = decoder_output.rnn_output
         if self.isPointer:
-            logits, attens = tf.split(logits, [args.rnn_size, args.enc_max_len], axis=2)
+            logits, attens = tf.split(logits, [args.rnn_size+args.rnn_size, args.enc_max_len], axis=2)
+            _, states = tf.split(logits, [args.rnn_size, args.rnn_size], axis=2)
             pointer_proj = tf.layers.Dense(1, activation=tf.sigmoid, _scope='pointer_proj_dense', _reuse=reuse)
-            pointer = pointer_proj.apply(logits) 
+            pointer = pointer_proj.apply(states) 
             # print("logits:", logits)
             # print("attens:", attens)
             # print("pointer:", pointer)
@@ -336,7 +337,7 @@ class BaseVAE:
         '''
          when anneal_step = 0, kl_w = 0; when anneal_step = anneal_bias, kl_w = 1
         '''
-        train_data_len = 3384185
+        train_data_len = args.data_len
         epochstep = train_data_len / self._batch_size 
         anneal_step_w = tf.cast(1 / epochstep * anneal_bias, tf.float32)
         return anneal_max * tf.sigmoid((10 / anneal_bias) * (

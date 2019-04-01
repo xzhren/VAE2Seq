@@ -23,6 +23,8 @@ def main():
     args.vocab_limit = 50000
     exp_path = "./saved/"+args.exp+"/"
     args.training = False
+    test_len = 11490
+    args.data_len = test_len
     print(args)
 
     ## DataLoader
@@ -62,7 +64,6 @@ def main():
         print("[PAEPEAR DATASET]")
 
         # Test DataSet
-        test_len = 11490
         test_file = "./corpus/cnndaily/test"
         batcher = dataloader.load_data(fpath=test_file)
         for _ in tqdm(range((test_len-1)//args.batch_size+1)):

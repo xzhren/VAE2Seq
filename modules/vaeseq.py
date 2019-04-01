@@ -65,8 +65,10 @@ class VAESEQ:
             self.transformer = Transformer(self.encoder_model, self.decoder_model, params['graph_type'], self.global_step)
         with tf.variable_scope('decodervae/decoding', reuse=True):
             self.training_logits = self.decoder_model._decoder_training(self.transformer.predition, reuse=True)
-            self.predicted_ids_op, _ = self.decoder_model._decoder_inference(self.transformer.predition)
-            # self.mask, self.attens_ids, self.predicted_ids = self.decoder_model._decoder_inference(self.transformer.predition)
+            if args.isPointer:
+                self.mask, self.attens_ids, self.predicted_ids = self.decoder_model._decoder_inference(self.transformer.predition)
+            else:
+                self.predicted_ids_op, _ = self.decoder_model._decoder_inference(self.transformer.predition)
     
     def _gradient_clipping(self, loss_op):
         params = tf.trainable_variables()
@@ -325,7 +327,7 @@ class VAESEQ:
                     else: print("ERRRRRRRRRRORR!!!")
                 # result = ' '.join([idx2word[idx] for idx in predicted_ids])
                 result = result.strip()
-                print(result)
+                # print(result)
                 end_index = result.find(" </S> ")
                 if end_index != -1:
                     result = result[:end_index]
