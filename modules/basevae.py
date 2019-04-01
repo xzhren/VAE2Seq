@@ -3,16 +3,33 @@ import numpy as np
 
 from config import args
 from modules.modified import ModifiedBasicDecoder, ModifiedBeamSearchDecoder
-from modules.modified import ModifiedContextDecoder, ModifiedBeamSearchContextDecoder
+from modules.modified import ContextDecoder, ContextBeamSearchDecoder
+from modules.modified import PointerDecoder, PointerBeamSearchDecoder
 from data.data_reddit import START_TOKEN, END_TOKEN, PAD_TOKEN, UNK_STRING, PAD_STRING
 
 class BaseVAE:
     def __init__(self, params, inputs, prefix, 
             context_encoder_ouputs=None, enc_atten_len=None, enc_atten_label=None):
+        self.prefix = prefix
         self.params = params
         self.context_encoder_ouputs = context_encoder_ouputs
         self.enc_atten_len = enc_atten_len
         self.enc_atten_label = enc_atten_label
+        if prefix == "decoder":
+            self.isContext = args.isContext
+            self.isPointer = args.isPointer
+        else:
+            self.isContext = False
+            self.isPointer = False
+
+        if self.isContext:
+            assert self.isPointer == False
+            assert self.context_encoder_ouputs != None
+        if self.isPointer:
+            assert self.isContext == False
+            assert self.context_encoder_ouputs != None
+            assert self.enc_atten_label != None
+            assert self.enc_atten_label != None
         self._build_inputs(inputs)
         self._build_graph(prefix)
         self._init_summary(prefix)
@@ -37,7 +54,7 @@ class BaseVAE:
         with tf.variable_scope('loss'):
             # self.global_step = tf.Variable(0, trainable=False)
             self.nll_loss = self._nll_loss_fn()
-            if self.context_encoder_ouputs != None:
+            if self.isPointer:
                 self.nll_loss += self._nll_loss_fn_pointer()
                 self.pointer_loss = self._nll_loss_fn_pointer()
                 self.raw_nll_loss = self._nll_loss_fn()
@@ -83,7 +100,7 @@ class BaseVAE:
             tf.summary.histogram(prefix+"_z_mean", self.z_mean)
             tf.summary.histogram(prefix+"_z_logvar", self.z_logvar)
             tf.summary.histogram(prefix+"_z", self.z)
-            if self.context_encoder_ouputs != None:
+            if self.isPointer:
                 tf.summary.scalar(prefix+"_pointer_loss", self.pointer_loss)
                 tf.summary.scalar(prefix+"_raw_nll_loss", self.raw_nll_loss)
                 tf.summary.image(prefix+"attention", tf.expand_dims(self.attens, -1))
@@ -121,7 +138,7 @@ class BaseVAE:
     def _decode(self, z):
         with tf.variable_scope('decoding'):
             self.training_logits = self._decoder_training(z)
-            if self.context_encoder_ouputs != None:
+            if self.isPointer:
                 self._decoder_inference(z)
             else:
                 self.predicted_ids, _ = self._decoder_inference(z)
@@ -159,8 +176,15 @@ class BaseVAE:
         helper = tf.contrib.seq2seq.TrainingHelper(
             inputs = tf.nn.embedding_lookup(tied_embedding, self.dec_inp),
             sequence_length = self.dec_seq_len)
-        if self.context_encoder_ouputs != None:
-            decoder = ModifiedContextDecoder(
+        if self.isPointer:
+            decoder = PointerDecoder(
+                cell = self.decoder_cells,
+                helper = helper,
+                initial_state = init_state,
+                concat_z = z,
+                encoder_ouputs = self.context_encoder_ouputs)
+        elif self.isContext:
+            decoder = ContextDecoder(
                 cell = self.decoder_cells,
                 helper = helper,
                 initial_state = init_state,
@@ -175,10 +199,11 @@ class BaseVAE:
         # b x t x h
         decoder_output, _, _ = tf.contrib.seq2seq.dynamic_decode(
             decoder = decoder)
-        # print("train decoder_output:", decoder_output)
+        print("train decoder_output:", decoder_output)
+        
         logits = self._dynamic_time_pad(decoder_output.rnn_output, self.params['max_dec_len'])
         # logits = decoder_output.rnn_output
-        if self.context_encoder_ouputs != None:
+        if self.isPointer:
             logits, attens = tf.split(logits, [args.rnn_size, args.enc_max_len], axis=2)
             pointer_proj = tf.layers.Dense(1, activation=tf.sigmoid, _scope='pointer_proj_dense', _reuse=reuse)
             pointer = pointer_proj.apply(logits) 
@@ -190,7 +215,7 @@ class BaseVAE:
         lin_proj = tf.layers.Dense(self.params['vocab_size'], _scope='out_proj_dense', _reuse=reuse)
         logits_dist = lin_proj.apply(logits) 
 
-        if self.context_encoder_ouputs != None:
+        if self.isPointer:
             logits_dist = logits_dist * (1-pointer)    
             self.attens = attens * pointer
 
@@ -201,8 +226,8 @@ class BaseVAE:
         init_state = tf.layers.dense(z, args.rnn_size, tf.nn.elu, name="z_proj_state", reuse=True)
         tiled_z = tf.tile(tf.expand_dims(z, 1), [1, args.beam_width, 1])
 
-        if self.context_encoder_ouputs != None:
-            decoder = ModifiedBeamSearchContextDecoder(
+        if self.isPointer:
+            decoder = PointerBeamSearchDecoder(
                 cell = self.decoder_cells,
                 embedding = tied_embedding,
                 start_tokens = tf.tile(tf.constant(
@@ -212,6 +237,18 @@ class BaseVAE:
                 beam_width = args.beam_width,
                 output_layer = tf.layers.Dense(self.params['vocab_size'], _scope="out_proj_dense", _reuse=True),
                 pointer_layer = tf.layers.Dense(1, activation=tf.sigmoid, _scope='pointer_proj_dense', _reuse=True),
+                concat_z = tiled_z,
+                encoder_ouputs = self.context_encoder_ouputs)
+        elif self.isContext:
+            decoder = ContextBeamSearchDecoder(
+                cell = self.decoder_cells,
+                embedding = tied_embedding,
+                start_tokens = tf.tile(tf.constant(
+                    [self.params['word2idx']['<S>']], dtype=tf.int32), [self._batch_size]),
+                end_token = self.params['word2idx']['</S>'],
+                initial_state = tf.contrib.seq2seq.tile_batch(init_state, args.beam_width),
+                beam_width = args.beam_width,
+                output_layer = tf.layers.Dense(self.params['vocab_size'], _scope="out_proj_dense", _reuse=True),
                 concat_z = tiled_z,
                 encoder_ouputs = self.context_encoder_ouputs)
         else:
@@ -230,11 +267,11 @@ class BaseVAE:
             decoder = decoder,
             maximum_iterations = 2*tf.reduce_max(self.enc_seq_len))
         print("inference decoder_output:", decoder_output)
-        print("inference attens:", decoder_output.beam_search_decoder_output.attens) # ?, ?, 5, 400
-        print("inference scores:", decoder_output.beam_search_decoder_output.scores) # ?, ?, 5
+        # print("inference attens:", decoder_output.beam_search_decoder_output.attens) # ?, ?, 5, 400
+        # print("inference scores:", decoder_output.beam_search_decoder_output.scores) # ?, ?, 5
 
 
-        if self.context_encoder_ouputs != None:
+        if self.isPointer:
             attens_raw = decoder_output.beam_search_decoder_output.attens
             attens, pointer = tf.split(attens_raw, [args.enc_max_len, 1], axis=3)
             pointer = tf.squeeze(pointer, axis=3) # b x l x beam
@@ -330,12 +367,18 @@ class BaseVAE:
                 'kl_w': kl_w, 'kl_loss': kl_loss, 'step': step}
 
 
-    def reconstruct(self, sess, sentence, sentence_dropped):
-        idx2word = self.params['idx2word']
+    def reconstruct(self, sess, sentence, sentence_dropped, sentence_feeddict=None):
+        if self.prefix == "decoder":
+            idx2word = self.params['idx2word']
+        elif self.prefix == "encoder":
+            idx2word = self.params['idx2token']
         infos = ""
         infos += 'I: %s\n' % ' '.join([idx2word[idx] for idx in sentence if idx != PAD_TOKEN])
         infos += 'D: %s\n' % ' '.join([idx2word[idx] for idx in sentence_dropped if idx != PAD_TOKEN])
-        predicted_ids = sess.run(self.predicted_ids, {self.enc_inp: np.atleast_2d(sentence)})[0]
+        if self.isContext or self.isPointer:
+            predicted_ids = sess.run(self.predicted_ids, sentence_feeddict)[0]
+        else:
+            predicted_ids = sess.run(self.predicted_ids, {self.enc_inp: np.atleast_2d(sentence)})[0]
         infos += 'O: %s\n' % ' '.join([idx2word[idx] for idx in predicted_ids if idx != PAD_TOKEN])
         infos += '-'*12 + "\n"
         return infos

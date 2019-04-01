@@ -90,6 +90,8 @@ class Transformer:
             # tf.summary.scalar("merged_loss", self.merged_loss)
             tf.summary.scalar("wasserstein_loss", self.wasserstein_loss)
             tf.summary.histogram("z_predition", self.predition)
+            tf.summary.histogram("predition_mean", self.predition_mean)
+            tf.summary.histogram("predition_logvar", self.predition_logvar)
             self.merged_summary_op = tf.summary.merge_all()
         
     def _gradient_clipping(self, loss_op):
@@ -131,7 +133,7 @@ class Transformer:
     #         'encoder_loss': encoder_loss, 'decoder_loss': decoder_loss, 'step': step}
 
     def sample_test(self, sess, sentence, answer, encoder_model, decoder_model, predicted_ids_op):
-        idx2word = encoder_model.params['idx2word']
+        idx2word = encoder_model.params['idx2token']
         infos = 'I: %s\n' % ' '.join([idx2word[idx] for idx in sentence if idx != PAD_TOKEN])
         # predict_decoder_z = sess.run(self.predition, {encoder_model.enc_inp: np.atleast_2d(sentence)})
         predicted_ids = sess.run(predicted_ids_op, {encoder_model.enc_inp: np.atleast_2d(sentence), decoder_model.enc_seq_len: [args.dec_max_len], decoder_model._batch_size: 1})[0]

@@ -52,9 +52,15 @@ class VAESEQ:
             decodervae_inputs = (self.y_enc_inp, self.y_dec_inp, self.y_dec_out, self.global_step)
             params['max_len'] = args.dec_max_len
             params['max_dec_len'] = args.dec_max_len + 1
-            self.decoder_model = BaseVAE(params, decodervae_inputs, "decoder")
-            # self.decoder_model = BaseVAE(params, decodervae_inputs, "decoder", 
-                        # self.encoder_model.encoder_outputs, self.encoder_model.enc_seq_len, self.attention_data)
+            
+            if args.isPointer:
+                self.decoder_model = BaseVAE(params, decodervae_inputs, "decoder", 
+                            self.encoder_model.encoder_outputs, self.encoder_model.enc_seq_len, self.attention_data)
+            elif args.isContext:
+                self.decoder_model = BaseVAE(params, decodervae_inputs, "decoder", self.encoder_model.encoder_outputs)
+            else:
+                self.decoder_model = BaseVAE(params, decodervae_inputs, "decoder")
+
         with tf.variable_scope('transformer'):
             self.transformer = Transformer(self.encoder_model, self.decoder_model, params['graph_type'], self.global_step)
         with tf.variable_scope('decodervae/decoding', reuse=True):
@@ -177,10 +183,20 @@ class VAESEQ:
         log = self.transformer.train_session(sess, feed_dict, train_loss)
         return log
         
-    # def merged_train(self, sess, x_enc_inp, x_dec_inp, x_dec_out, y_enc_inp, y_dec_inp, y_dec_out):
-    #     log = self.transformer.merged_train_session(sess, self.encoder_model, self.decoder_model,
-    #             x_enc_inp, x_dec_inp, x_dec_out, y_enc_inp, y_dec_inp, y_dec_out)
-    #     return log
+    def merged_train(self, sess, x_enc_inp, x_dec_inp, x_dec_out, y_enc_inp, y_dec_inp, y_dec_out):
+        feed_dict = {
+            self.x_enc_inp: x_enc_inp,
+            self.x_dec_inp: x_dec_inp,
+            self.x_dec_out: x_dec_out,
+            self.y_enc_inp: y_enc_inp,
+            self.y_dec_inp: y_dec_inp,
+            self.y_dec_out: y_dec_out
+        }
+        _, summaries, loss, trans_loss, encoder_loss, decoder_loss, step = sess.run(
+            [self.merged_train_op, self.merged_summary_op, self.merged_loss, self.merged_loss_seq, self.encoder_model.loss, self.decoder_model.loss, self.global_step],
+                feed_dict)
+        return {'summaries': summaries, 'merged_loss': loss, 'trans_loss': trans_loss, 
+            'encoder_loss': encoder_loss, 'decoder_loss': decoder_loss, 'step': step}
 
     def merged_seq_train(self, sess, x_enc_inp, x_dec_inp, x_dec_out, y_enc_inp, y_dec_inp, y_dec_out, atten_data):
         feed_dict = {
@@ -220,9 +236,12 @@ class VAESEQ:
         LOGGER.write(infos)
         print(infos.strip())
 
-    def show_decoder(self, sess, x, y, LOGGER):
+    def show_decoder(self, sess, x, y, LOGGER, x_raw):
         # self.decoder_model.generate(sess)
-        infos = self.decoder_model.reconstruct(sess, x, y)
+        feeddict = {}
+        feeddict[self.x_enc_inp] = np.atleast_2d(x_raw)
+        feeddict[self.y_enc_inp] = np.atleast_2d(x)
+        infos = self.decoder_model.reconstruct(sess, x, y, feeddict)
         # self.decoder_model.customized_reconstruct(sess, 'i love this film and i think it is one of the best films')
         # self.decoder_model.customized_reconstruct(sess, 'this movie is a waste of time and there is no point to watch it')
         LOGGER.write(infos)
@@ -272,6 +291,16 @@ class VAESEQ:
                     result = result[:end_index]
                 f.write('%s\n' % result)
                 # f.write('%s\n' % ' '.join([idx2word[idx] for idx in predicted_ids]))
+
+    def export_vectors(self, sess, enc_inp, dec_inp):
+        code_mean, code_logvar = sess.run(
+            [self.transformer.predition_mean, self.transformer.predition_logvar], 
+            {self.x_enc_inp:enc_inp})
+        desc_mean, desc_logvar = sess.run(
+            [self.decoder_model.z_mean, self.decoder_model.z_logvar], 
+            {self.y_enc_inp:dec_inp})
+        return code_mean, code_logvar, desc_mean, desc_logvar
+
 
     def evaluation_pointer(self, sess, enc_inp, outputfile, raw_inp):
         idx2word = self.params['idx2word']

@@ -28,6 +28,8 @@ parser.add_argument('--exp', type=str, default="NONE")
 parser.add_argument('--batch_size', type=int, default=32)
 parser.add_argument('--graph_type', type=str, default="embed_dist")
 parser.add_argument('--training', type=bool, default=True)
+parser.add_argument('--isPointer', type=bool, default=False)
+parser.add_argument('--isContext', type=bool, default=False)
 
 
 args = parser.parse_args()
