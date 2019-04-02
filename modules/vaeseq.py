@@ -37,7 +37,10 @@ class VAESEQ:
             self.y_dec_inp = tf.placeholder(tf.int32, [None, args.dec_max_len+1], name="y_dec_inp")
             self.y_dec_out = tf.placeholder(tf.int32, [None, args.dec_max_len+1], name="y_dec_out")
             # attention data
-            self.attention_data = tf.placeholder(tf.int32, [None, args.dec_max_len+1, args.enc_max_len], name="atten_data")
+            # self.attention_data = tf.placeholder(tf.int32, [None, args.dec_max_len+1, args.enc_max_len], name="atten_data")
+            if args.isPointer:
+                self.x_enc_inp_oovs = tf.placeholder(tf.int32, [None, args.enc_max_len], name="x_enc_inp_oovs")
+                self.max_oovs = tf.placeholder(tf.int32, None, name="max_oovs")
             # train step
             self.global_step = tf.Variable(0, trainable=False)
 
@@ -55,7 +58,7 @@ class VAESEQ:
             
             if args.isPointer:
                 self.decoder_model = BaseVAE(params, decodervae_inputs, "decoder", 
-                            self.encoder_model.encoder_outputs, self.encoder_model.enc_seq_len, self.attention_data)
+                            self.encoder_model.encoder_outputs, self.x_enc_inp_oovs, self.max_oovs)
             elif args.isContext:
                 self.decoder_model = BaseVAE(params, decodervae_inputs, "decoder", self.encoder_model.encoder_outputs)
             else:
@@ -65,10 +68,10 @@ class VAESEQ:
             self.transformer = Transformer(self.encoder_model, self.decoder_model, params['graph_type'], self.global_step)
         with tf.variable_scope('decodervae/decoding', reuse=True):
             self.training_logits = self.decoder_model._decoder_training(self.transformer.predition, reuse=True)
-            if args.isPointer:
-                self.mask, self.attens_ids, self.predicted_ids = self.decoder_model._decoder_inference(self.transformer.predition)
-            else:
-                self.predicted_ids_op, _ = self.decoder_model._decoder_inference(self.transformer.predition)
+            # if args.isPointer:
+                # self.mask, self.attens_ids, self.predicted_ids = self.decoder_model._decoder_inference(self.transformer.predition)
+            # else:
+            self.predicted_ids_op, _ = self.decoder_model._decoder_inference(self.transformer.predition)
     
     def _gradient_clipping(self, loss_op):
         params = tf.trainable_variables()
@@ -200,7 +203,7 @@ class VAESEQ:
         return {'summaries': summaries, 'merged_loss': loss, 'trans_loss': trans_loss, 
             'encoder_loss': encoder_loss, 'decoder_loss': decoder_loss, 'step': step}
 
-    def merged_seq_train(self, sess, x_enc_inp, x_dec_inp, x_dec_out, y_enc_inp, y_dec_inp, y_dec_out, atten_data):
+    def merged_seq_train(self, sess, x_enc_inp, x_dec_inp, x_dec_out, y_enc_inp, y_dec_inp, y_dec_out, x_enc_inp_oovs, max_oovs):
         feed_dict = {
             self.x_enc_inp: x_enc_inp,
             self.x_dec_inp: x_dec_inp,
@@ -208,7 +211,9 @@ class VAESEQ:
             self.y_enc_inp: y_enc_inp,
             self.y_dec_inp: y_dec_inp,
             self.y_dec_out: y_dec_out,
-            self.attention_data: atten_data
+            self.x_enc_inp_oovs: x_enc_inp_oovs,
+            self.max_oovs: max_oovs
+            # self.attention_data: atten_data
         }
         _, summaries, loss, trans_loss, encoder_loss, decoder_loss, step = sess.run(
             [self.merged_train_op, self.merged_summary_op, self.merged_loss, self.merged_loss_seq, self.encoder_model.loss, self.decoder_model.loss, self.global_step],
@@ -260,7 +265,7 @@ class VAESEQ:
     def evaluation_decoder_vae(self, sess, enc_inp, outputfile):
         self.decoder_model.evaluation(sess, enc_inp, outputfile)
 
-    def evaluation(self, sess, enc_inp, outputfile):
+    def evaluation(self, sess, enc_inp, outputfile, enc_inp_oovs=None, max_oovs_len=None, data_oovs=None):
         idx2word = self.params['idx2word']
         #### method - I
         # batch_size, trans_input = sess.run([self.encoder_model._batch_size, self.encoder_model.z], {self.x_enc_inp:enc_inp})
@@ -279,15 +284,22 @@ class VAESEQ:
         #         self.decoder_model.enc_seq_len: [args.dec_max_len]})
 
         batch_size = sess.run(self.encoder_model._batch_size, {self.x_enc_inp:enc_inp})
-        predicted_ids_lt = sess.run(self.predicted_ids_op, {self.x_enc_inp:enc_inp, self.decoder_model.enc_seq_len: [args.dec_max_len], self.decoder_model._batch_size: batch_size})
+        predicted_ids_lt = sess.run(self.predicted_ids_op, 
+            {self.x_enc_inp : enc_inp, 
+            self.x_enc_inp_oovs : enc_inp_oovs,
+            self.max_oovs : max_oovs_len,
+            self.decoder_model.enc_seq_len : [args.dec_max_len], 
+            self.decoder_model._batch_size : batch_size})
 
         #### method - II
         # batch_size = sess.run(self.encoder_model._batch_size, {self.x_enc_inp:enc_inp})
         # predicted_ids_lt = sess.run(self.predicted_ids_op, 
         #     {self.decoder_model._batch_size: batch_size, self.x_enc_inp: enc_inp, self.y_enc_inp: enc_inp, self.decoder_model.enc_seq_len: [args.dec_max_len]})
-        for predicted_ids in predicted_ids_lt:
+        for i, predicted_ids in enumerate(predicted_ids_lt):
             with open(outputfile, "a") as f:
-                result = ' '.join([idx2word[idx] for idx in predicted_ids])
+                predicted_ids_tokens = [idx2word[idx] if idx < len(idx2word) else data_oovs[i][idx-len(idx2word)] for idx in predicted_ids]
+                # result = ' '.join([idx2word[idx] for idx in predicted_ids])
+                result = ' '.join(predicted_ids_tokens)
                 end_index = result.find(" </S> ")
                 if end_index != -1:
                     result = result[:end_index]

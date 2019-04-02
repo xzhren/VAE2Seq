@@ -9,12 +9,15 @@ from data.data_reddit import START_TOKEN, END_TOKEN, PAD_TOKEN, UNK_STRING, PAD_
 
 class BaseVAE:
     def __init__(self, params, inputs, prefix, 
-            context_encoder_ouputs=None, enc_atten_len=None, enc_atten_label=None):
+            context_encoder_ouputs=None, 
+            x_enc_inp_oovs=None, max_oovs=None):
         self.prefix = prefix
         self.params = params
         self.context_encoder_ouputs = context_encoder_ouputs
-        self.enc_atten_len = enc_atten_len
-        self.enc_atten_label = enc_atten_label
+        # self.enc_atten_len = enc_atten_len
+        # self.enc_atten_label = enc_atten_label
+        self.x_enc_inp_oovs = x_enc_inp_oovs
+        self.max_oovs = max_oovs
         if prefix == "decoder":
             self.isContext = args.isContext
             self.isPointer = args.isPointer
@@ -28,8 +31,8 @@ class BaseVAE:
         if self.isPointer:
             assert self.isContext == False
             assert self.context_encoder_ouputs != None
-            assert self.enc_atten_label != None
-            assert self.enc_atten_label != None
+            assert self.x_enc_inp_oovs != None
+            assert self.max_oovs != None
         self._build_inputs(inputs)
         self._build_graph(prefix)
         self._init_summary(prefix)
@@ -54,10 +57,10 @@ class BaseVAE:
         with tf.variable_scope('loss'):
             # self.global_step = tf.Variable(0, trainable=False)
             self.nll_loss = self._nll_loss_fn()
-            if self.isPointer:
-                self.nll_loss += self._nll_loss_fn_pointer()
-                self.pointer_loss = self._nll_loss_fn_pointer()
-                self.raw_nll_loss = self._nll_loss_fn()
+            # if self.isPointer:
+            #     self.nll_loss += self._nll_loss_fn_pointer()
+            #     self.pointer_loss = self._nll_loss_fn_pointer()
+            #     self.raw_nll_loss = self._nll_loss_fn()
 
             self.kl_w = self._kl_w_fn(args.anneal_max, args.anneal_bias, self.global_step)
             self.kl_loss = self._kl_loss_fn(self.z_mean, self.z_logvar)
@@ -101,8 +104,8 @@ class BaseVAE:
             tf.summary.histogram(prefix+"_z_logvar", self.z_logvar)
             tf.summary.histogram(prefix+"_z", self.z)
             if self.isPointer:
-                tf.summary.scalar(prefix+"_pointer_loss", self.pointer_loss)
-                tf.summary.scalar(prefix+"_raw_nll_loss", self.raw_nll_loss)
+                # tf.summary.scalar(prefix+"_pointer_loss", self.pointer_loss)
+                # tf.summary.scalar(prefix+"_raw_nll_loss", self.raw_nll_loss)
                 tf.summary.image(prefix+"attention", tf.expand_dims(self.attens, -1))
                 # tf.summary.image("attention", tf.expand_dims(attention[:1], -1))
             self.merged_summary_op = tf.summary.merge_all()
@@ -138,10 +141,10 @@ class BaseVAE:
     def _decode(self, z):
         with tf.variable_scope('decoding'):
             self.training_logits = self._decoder_training(z)
-            if self.isPointer:
-                self._decoder_inference(z)
-            else:
-                self.predicted_ids, _ = self._decoder_inference(z)
+            # if self.isPointer:
+            #     self._decoder_inference(z)
+            # else:
+            self.predicted_ids, _ = self._decoder_inference(z)
 
     def _rnn_cell(self, rnn_size=None, reuse=False):
         rnn_size = args.rnn_size if rnn_size is None else rnn_size
@@ -219,8 +222,49 @@ class BaseVAE:
         if self.isPointer:
             logits_dist = logits_dist * (1-pointer)    
             self.attens = attens * pointer
+            logits_dist = self._calc_final_dist(logits_dist, self.attens)
+
 
         return logits_dist
+
+    def _calc_final_dist(self, vocab_dists, attn_dists):
+        extra_zeros = tf.zeros((self._batch_size, args.dec_max_len+1, self.max_oovs))
+        vocab_dists_extended = tf.concat(axis=2, values=[vocab_dists, extra_zeros])
+
+        extended_vsize = len(self.params['word2idx']) + self.max_oovs
+        batch_nums = tf.range(0, limit=self._batch_size) 
+        batch_nums = tf.tile(tf.expand_dims(batch_nums, 1), [1, args.dec_max_len+1]) # shape (batch_size, attn_len)
+        batch_nums = tf.reshape(batch_nums, [-1])
+        # batch_nums = tf.expand_dims(batch_nums, 1) # shape (batch_size, 1)
+        # attn_len = tf.shape(self._enc_batch_extend_vocab)[1] # number of states we attend over
+        batch_nums = tf.tile(tf.expand_dims(batch_nums, 1), [1, args.enc_max_len]) # shape (batch_size, attn_len)
+        x_enc_inp_oovs = tf.tile(tf.expand_dims(self.x_enc_inp_oovs, 1), [1, args.dec_max_len+1, 1]) # shape (batch_size, attn_len)
+        x_enc_inp_oovs = tf.reshape(batch_nums, [-1, args.enc_max_len])
+        indices = tf.stack( (batch_nums, x_enc_inp_oovs), axis=2) # shape (batch_size, enc_t, 2)
+        shape = [self._batch_size*(args.dec_max_len+1), extended_vsize]
+        attn_dists =  tf.reshape(attn_dists, [-1, args.enc_max_len])
+        attn_dists_projected = tf.scatter_nd(indices, attn_dists, shape)
+        print("attn_dists_projected:", attn_dists_projected)
+        attn_dists_projected = tf.reshape(attn_dists_projected, [self._batch_size, args.dec_max_len+1, extended_vsize])
+        # [32,400,2], [32,101,400], [32,101,50031]
+
+        return vocab_dists_extended + attn_dists_projected
+
+    def _calc_final_dist_decoder(self):
+        extra_zeros = tf.zeros((self._batch_size, args.beam_width, self.max_oovs))
+
+        extended_vsize = len(self.params['word2idx']) + self.max_oovs
+        batch_nums = tf.range(0, limit=self._batch_size) 
+        batch_nums = tf.expand_dims(batch_nums, 1) # shape (batch_size, 1)
+        # attn_len = tf.shape(self._enc_batch_extend_vocab)[1] # number of states we attend over
+        batch_nums = tf.tile(batch_nums, [1, args.enc_max_len]) # shape (batch_size, attn_len)
+        extra_indices = tf.zeros((self._batch_size, args.enc_max_len), dtype=tf.int32) # shape (batch_size, attn_len)
+        indices = tf.stack( (batch_nums, extra_indices, self.x_enc_inp_oovs), axis=2) # shape (batch_size, enc_t, 3)
+        indices = tf.expand_dims(indices, 1) # shape (batch_size, 1, enc_t, 3)
+        indices = tf.tile(indices, [1, args.beam_width, 1, 1]) # shape (batch_size, beam, enc_t, 3)
+        shape = [self._batch_size, args.beam_width, extended_vsize]
+           
+        return extra_zeros, indices, shape
 
     def _decoder_inference(self, z):
         tied_embedding = self.tied_embedding
@@ -238,6 +282,7 @@ class BaseVAE:
                 beam_width = args.beam_width,
                 output_layer = tf.layers.Dense(self.params['vocab_size'], _scope="out_proj_dense", _reuse=True),
                 pointer_layer = tf.layers.Dense(1, activation=tf.sigmoid, _scope='pointer_proj_dense', _reuse=True),
+                pointer_data = self._calc_final_dist_decoder(),
                 concat_z = tiled_z,
                 encoder_ouputs = self.context_encoder_ouputs)
         elif self.isContext:
@@ -270,32 +315,6 @@ class BaseVAE:
         print("inference decoder_output:", decoder_output)
         # print("inference attens:", decoder_output.beam_search_decoder_output.attens) # ?, ?, 5, 400
         # print("inference scores:", decoder_output.beam_search_decoder_output.scores) # ?, ?, 5
-
-
-        if self.isPointer:
-            attens_raw = decoder_output.beam_search_decoder_output.attens
-            attens, pointer = tf.split(attens_raw, [args.enc_max_len, 1], axis=3)
-            pointer = tf.squeeze(pointer, axis=3) # b x l x beam
-
-
-            mask_fn = lambda l : tf.sequence_mask(l, args.enc_max_len, dtype=tf.float32)
-            enc_mask = mask_fn(self.enc_atten_len) # b x t = 64 x 400
-            enc_mask = tf.expand_dims(enc_mask, 1) # b x 1 x t
-            enc_mask = tf.expand_dims(enc_mask, 1) # b x 1 x 1 x t
-            attens = attens * enc_mask
-
-            attens_ids = tf.arg_max(attens, dimension=3) # b x l x beam x 1
-            # attens_ids = tf.squeeze(attens_ids, axis=3) # b x l x beam
-            attens_val = pointer*tf.reduce_max(attens, axis=3) # b x l x beam x 1
-            # attens_val = pointer*tf.squeeze(attens_val, axis=3) # b x l x beam
-            
-            predicted_ids = decoder_output.predicted_ids # b x l x beam
-            predicted_val = (1-pointer)*decoder_output.beam_search_decoder_output.scores # b x l x beam
-               
-            mask = tf.cast(tf.greater_equal(predicted_val, attens_val), tf.int32)
-            # print("attens_ids:", attens_ids)
-            # print("pointer:", pointer)
-            return mask, attens_ids, predicted_ids
     
         return decoder_output.predicted_ids[:, :, 0], decoder_output.beam_search_decoder_output.scores[:, :, 0]    
     
@@ -316,22 +335,22 @@ class BaseVAE:
             average_across_timesteps = False,
             average_across_batch = True))
 
-    def _nll_loss_fn_pointer(self):
-        mask_fn = lambda l : tf.sequence_mask(l, args.enc_max_len, dtype=tf.float32)
-        enc_mask = mask_fn(self.enc_atten_len) # b x t = 64 x 400
-        enc_mask = tf.expand_dims(enc_mask, 1) # b x 1 x t
-        mask_fn = lambda l : tf.sequence_mask(l, self.params['max_dec_len'], dtype=tf.float32)
-        dec_mask = mask_fn(self.dec_seq_len) # b x t = 64 x ?
-        # dec_mask = tf.expand_dims(dec_mask, 2) # b x 1 x t
+    # def _nll_loss_fn_pointer(self):
+    #     mask_fn = lambda l : tf.sequence_mask(l, args.enc_max_len, dtype=tf.float32)
+    #     enc_mask = mask_fn(self.enc_atten_len) # b x t = 64 x 400
+    #     enc_mask = tf.expand_dims(enc_mask, 1) # b x 1 x t
+    #     mask_fn = lambda l : tf.sequence_mask(l, self.params['max_dec_len'], dtype=tf.float32)
+    #     dec_mask = mask_fn(self.dec_seq_len) # b x t = 64 x ?
+    #     # dec_mask = tf.expand_dims(dec_mask, 2) # b x 1 x t
 
-        label = tf.cast(self.enc_atten_label, tf.float32)
-        attens = self._dynamic_time_pad(self.attens, self.params['max_dec_len'])
-        # b x dec_l x enc_l
-        # return tf.reduce_sum(-tf.log(
-        #    tf.reduce_sum(attens * label * enc_mask, axis=2)+1e-13) * dec_mask)
-        return tf.reduce_sum(-
-        tf.reduce_sum(label * tf.log(attens+1e-13) + (1-label) * tf.log(1-attens+1e-13) * enc_mask, axis=2)
-           * dec_mask)
+    #     label = tf.cast(self.enc_atten_label, tf.float32)
+    #     attens = self._dynamic_time_pad(self.attens, self.params['max_dec_len'])
+    #     # b x dec_l x enc_l
+    #     # return tf.reduce_sum(-tf.log(
+    #     #    tf.reduce_sum(attens * label * enc_mask, axis=2)+1e-13) * dec_mask)
+    #     return tf.reduce_sum(-
+    #     tf.reduce_sum(label * tf.log(attens+1e-13) + (1-label) * tf.log(1-attens+1e-13) * enc_mask, axis=2)
+    #        * dec_mask)
 
     def _kl_w_fn(self, anneal_max, anneal_bias, global_step):
         '''

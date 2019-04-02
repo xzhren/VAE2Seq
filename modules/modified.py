@@ -217,11 +217,13 @@ class PointerBeamSearchDecoder(RewriteBeamSearchDecoder):
                  encoder_ouputs,
                  output_layer=None,
                  pointer_layer=None,
+                 pointer_data=None,
                  length_penalty_weight=0.0):
         super().__init__(cell, embedding, start_tokens, end_token, initial_state, beam_width, output_layer, length_penalty_weight)
         self.z = concat_z
         self.encoder_ouputs = encoder_ouputs # b x t x e
         self.pointer_layer = pointer_layer
+        self.pointer_data = pointer_data
 
     def initialize(self, name=None):
         (finished, start_inputs, initial_state) = super().initialize(name)
@@ -260,9 +262,19 @@ class PointerBeamSearchDecoder(RewriteBeamSearchDecoder):
             ### cell_outputs vector
             cell_outputs = array_ops.concat([cell_outputs, context_vec], -1)
             ### end cell_outputs vector
+            pointer = self.pointer_layer.apply(next_cell_state) # bxbeamx1
+            attens = tf.transpose(attens, [0,2,1]) # bxbeamxt
 
             if self._output_layer is not None:
                 cell_outputs = self._output_layer(cell_outputs)
+                vocab_dists = cell_outputs * (1-pointer) # bxbeamxv
+                attens_dist = attens * pointer
+                def _calc_final_dist(vocab_dists, attn_dists):
+                    extra_zeros, indices, shape = self.pointer_data
+                    vocab_dists_extended = tf.concat(axis=2, values=[vocab_dists, extra_zeros])
+                    attn_dists_projected = tf.scatter_nd(indices, attn_dists, shape)
+                    return vocab_dists_extended + attn_dists_projected
+                cell_outputs = _calc_final_dist(vocab_dists, attens_dist)
 
             beam_search_output, beam_search_state = _rewrite_beam_search_step(
                 time=time,
@@ -282,11 +294,10 @@ class PointerBeamSearchDecoder(RewriteBeamSearchDecoder):
 
             ### next_inputs vector
             next_inputs = array_ops.concat([next_inputs, self.z], -1) # bxbeamx[e+c+c]=bx5x640
-
-            attens = tf.transpose(attens, [0,2,1]) # bxbeamxt
-            pointer = self.pointer_layer.apply(next_cell_state) # bxbeamx1
-            outputs_merged = array_ops.concat([attens, pointer], -1) # bxbeamx[c+t]=bx5x656
-            beam_search_output = RewriteBeamSearchDecoderOutput(outputs_merged, beam_search_output[1], beam_search_output[2], beam_search_output[3])
+            # attens = tf.transpose(attens, [0,2,1]) # bxbeamxt
+            # pointer = self.pointer_layer.apply(next_cell_state) # bxbeamx1
+            # outputs_merged = array_ops.concat([attens, pointer], -1) # bxbeamx[c+t]=bx5x656
+            # beam_search_output = RewriteBeamSearchDecoderOutput(outputs_merged, beam_search_output[1], beam_search_output[2], beam_search_output[3])
             ### next_inputs vector
         
         return (beam_search_output, beam_search_state, next_inputs, finished)

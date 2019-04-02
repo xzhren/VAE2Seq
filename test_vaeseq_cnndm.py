@@ -68,13 +68,15 @@ def main():
         batcher = dataloader.load_data(fpath=test_file)
         for _ in tqdm(range((test_len-1)//args.batch_size+1)):
             try:
-                (enc_inp, _, _, _, _, _), _, raw_inp = next(batcher)
+                (enc_inp, _, _, _, _, _), x_enc_inp_oovs, data_oovs, _ = next(batcher)
+                # enc_inp, _, _, _, _, _ = next(batcher)
                 # dec_inp = dataloader.update_word_dropout(dec_inp_full)
+                max_oovs_len = max([len(oov) for oov in data_oovs])
             except StopIteration:
                 print("there are no more examples")
                 break
-            # model.evaluation(sess, enc_inp, trans_file)
-            model.evaluation_pointer(sess, enc_inp, trans_file, raw_inp)
+            model.evaluation(sess, enc_inp, trans_file, x_enc_inp_oovs, max_oovs_len, data_oovs)
+            # model.evaluation_pointer(sess, enc_inp, trans_file, raw_inp)
 
     # Evaluation
     eval_log = {}

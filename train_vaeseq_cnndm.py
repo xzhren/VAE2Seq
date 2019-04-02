@@ -85,9 +85,10 @@ def main():
 
             # get batch data
             try:
-                (x_enc_inp, x_dec_inp_full, x_dec_out, y_enc_inp, y_dec_inp_full, y_dec_out), atten_data, _ = next(batcher)
+                (x_enc_inp, x_dec_inp_full, x_dec_out, y_enc_inp, y_dec_inp_full, y_dec_out), x_enc_inp_oovs, data_oovs, _ = next(batcher)
                 x_dec_inp = dataloader.update_word_dropout(x_dec_inp_full)
                 y_dec_inp = dataloader.update_word_dropout(y_dec_inp_full)
+                max_oovs_len = max([len(oov) for oov in data_oovs])
             except StopIteration:
                 print("there are no more examples")
                 break
@@ -98,7 +99,7 @@ def main():
             # t_log = model.train_transformer(sess, x_enc_inp, x_dec_inp, x_dec_out, y_enc_inp, y_dec_inp, y_dec_out)
             # t_log = model.merged_transformer_train(sess, x_enc_inp, x_dec_inp, x_dec_out, y_enc_inp, y_dec_inp, y_dec_out)
             # log = model.merged_train(sess, x_enc_inp, x_dec_inp, x_dec_out, y_enc_inp, y_dec_inp, y_dec_out)
-            log = model.merged_seq_train(sess, x_enc_inp, x_dec_inp, x_dec_out, y_enc_inp, y_dec_inp, y_dec_out, atten_data)
+            log = model.merged_seq_train(sess, x_enc_inp, x_dec_inp, x_dec_out, y_enc_inp, y_dec_inp, y_dec_out, x_enc_inp_oovs, max_oovs_len)
             # model.show_parameters(sess)
 
             # get the summaries and iteration number so we can write summaries to tensorboard

@@ -60,46 +60,87 @@ class CNNDAILY(BaseDataLoader):
     
     def load_data(self, fpath="./corpus/cnndaily/train"):
         batch_size = self.batch_size
-        x_data, y_data = [], []
+        x_data, x_data_oovs, y_data = [], [], []
         atten_data = []
         src_data = []
         while True:
             with open(fpath+".txt.src") as fsrc, open(fpath+".txt.tgt.tagged") as ftgt:  
                 for i, (src, tgt) in enumerate(zip(fsrc,ftgt)):
                     tokens_src = src.strip().split(" ")
-                    tokens_ids = [self.word2idx[t] if t in self.word2idx else UNK_TOKEN for t in tokens_src]
-                    x_data.append(tokens_ids)
                     tgt = tgt.split(START_STRING)[1]
                     tgt = tgt.split(END_STRING)[0].strip()
                     tokens_tgt = tgt.split(" ")
-                    tokens_ids = [self.word2idx[t] if t in self.word2idx else UNK_TOKEN for t in tokens_tgt]
-                    y_data.append(tokens_ids)
 
-                    atten_label = np.zeros((self.max_output_len+1, self.max_input_len), dtype=int)
-                    for i,t in enumerate(tokens_tgt[:self.max_output_len]):
-                        for j,s in enumerate(tokens_src[:self.max_input_len]):
-                            if s == t: atten_label[i][j] = 1
-                    # print(np.sum(atten_label,1))
-                    # print(tokens_tgt)
-                    # print(tokens_src)
-                    atten_data.append(atten_label)
+                    tokens_ids_src = [self.word2idx[t] if t in self.word2idx else UNK_TOKEN for t in tokens_src]
+                    x_data.append(tokens_ids_src)
+                    if args.isPointer:
+                        tokens_ids_src, tokens_ids_tgt, oovs = self._oov_data(tokens_src, tokens_tgt)
+                        x_data_oovs.append(tokens_ids_src)
+                        y_data.append(tokens_ids_tgt)
+                        atten_data.append(oovs)
+                    else:
+                        tokens_ids_tgt = [self.word2idx[t] if t in self.word2idx else UNK_TOKEN for t in tokens_tgt]
+                        y_data.append(tokens_ids_tgt)
+
+
+                    # atten_label = np.zeros((self.max_output_len+1, self.max_input_len), dtype=int)
+                    # for i,t in enumerate(tokens_tgt[:self.max_output_len]):
+                    #     for j,s in enumerate(tokens_src[:self.max_input_len]):
+                    #         if s == t: atten_label[i][j] = 1
+                    # # print(np.sum(atten_label,1))
+                    # # print(tokens_tgt)
+                    # # print(tokens_src)
+                    # atten_data.append(atten_label)
                     src_data.append(tokens_src[:self.max_output_len])
 
         
                     if len(x_data) == batch_size:
                         assert len(x_data) == len(y_data)
-                        assert len(x_data) == len(atten_data)
-                        yield self._pad(x_data, y_data), atten_data, src_data
-                        x_data, y_data = [], []
+                        # assert len(x_data) == len(atten_data)
+                        x_enc_inp_oovs, _, _ = self._pad_one(x_data_oovs, self.max_input_len)
+                        yield self._pad(x_data, y_data), x_enc_inp_oovs, atten_data, src_data
+                        x_data, x_data_oovs, y_data = [], [], []
                         atten_data = []
                         src_data = []
                 assert len(x_data) == len(y_data)
-                assert len(x_data) == len(atten_data)
+                # assert len(x_data) == len(atten_data)
                 if len(x_data) != 0:
-                    yield self._pad(x_data, y_data), atten_data, src_data
-                    x_data, y_data = [], []
+                    x_enc_inp_oovs, _, _ = self._pad_one(x_data_oovs, self.max_input_len)
+                    yield self._pad(x_data, y_data), x_enc_inp_oovs, atten_data, src_data
+                    x_data, x_data_oovs, y_data = [], [], []
+                    atten_data = []
+                    src_data = []
             print("=====! EPOCH !======")
             break
+    
+    def _oov_data(self, tokens_src, tokens_tgt):
+        def _oov_tokens_src_one(tokens_src):
+            tokens_ids = []
+            oovs = []
+            for t in tokens_src:
+                if t in self.word2idx:
+                    tokens_ids.append(self.word2idx[t])
+                else:
+                    if t not in oovs:
+                        oovs.append(t)
+                    oov_index = oovs.index(t)
+                    tokens_ids.append(len(self.word2idx)+oov_index)
+            return tokens_ids, oovs
+        def _oov_tokens_tgt_one(tokens_tgt, oovs):
+            tokens_ids = []
+            for t in tokens_tgt:
+                if t in self.word2idx:
+                    tokens_ids.append(self.word2idx[t])
+                else:
+                    if t not in oovs:
+                        tokens_ids.append(UNK_TOKEN)
+                    else:
+                        oov_index = oovs.index(t)
+                        tokens_ids.append(len(self.word2idx)+oov_index)
+            return tokens_ids
+        tokens_ids_src, oovs = _oov_tokens_src_one(tokens_src)
+        tokens_ids_tgt = _oov_tokens_tgt_one(tokens_tgt, oovs)
+        return tokens_ids_src, tokens_ids_tgt, oovs
 
     def _pad_one(self, data, maxlen):
         enc_inp = []
