@@ -71,7 +71,7 @@ def main():
                 (enc_inp, _, _, _, _, _), x_enc_inp_oovs, data_oovs, _ = next(batcher)
                 # enc_inp, _, _, _, _, _ = next(batcher)
                 # dec_inp = dataloader.update_word_dropout(dec_inp_full)
-                max_oovs_len = max([len(oov) for oov in data_oovs])
+                max_oovs_len = 0 if len(data_oovs) == 0 else max([len(oov) for oov in data_oovs]) 
             except StopIteration:
                 print("there are no more examples")
                 break

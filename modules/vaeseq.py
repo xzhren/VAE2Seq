@@ -284,12 +284,22 @@ class VAESEQ:
         #         self.decoder_model.enc_seq_len: [args.dec_max_len]})
 
         batch_size = sess.run(self.encoder_model._batch_size, {self.x_enc_inp:enc_inp})
-        predicted_ids_lt = sess.run(self.predicted_ids_op, 
-            {self.x_enc_inp : enc_inp, 
-            self.x_enc_inp_oovs : enc_inp_oovs,
-            self.max_oovs : max_oovs_len,
-            self.decoder_model.enc_seq_len : [args.dec_max_len], 
-            self.decoder_model._batch_size : batch_size})
+        if args.isPointer:
+            feed_dict = {
+                self.x_enc_inp : enc_inp, 
+                self.x_enc_inp_oovs : enc_inp_oovs,
+                self.max_oovs : max_oovs_len,
+                self.decoder_model.enc_seq_len : [args.dec_max_len], 
+                self.decoder_model._batch_size : batch_size
+            }
+        else:
+            feed_dict = {
+                self.x_enc_inp : enc_inp, 
+                self.decoder_model.enc_seq_len : [args.dec_max_len], 
+                self.decoder_model._batch_size : batch_size
+            }
+
+        predicted_ids_lt = sess.run(self.predicted_ids_op, feed_dict)
 
         #### method - II
         # batch_size = sess.run(self.encoder_model._batch_size, {self.x_enc_inp:enc_inp})
