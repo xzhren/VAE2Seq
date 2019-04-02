@@ -14,6 +14,8 @@ import sentencepiece as spm
 import re
 # from hparams import Hparams
 import logging
+import jieba
+import re
 
 logging.basicConfig(level=logging.INFO)
 
@@ -63,47 +65,57 @@ def prepro(vocab_size):
     os.makedirs(corpus_dir+"prepro", exist_ok=True)
     def _write(sents, fname):
         with open(fname, 'w') as fout:
-            fout.write("\n".join(sents))
+            for sent in sents:
+                sent = re.sub(' +', ' ', sent)
+                fout.write(sent+"\n")
+            # fout.write("\n".join(sents))
+    def _write_cut(sents, fname):
+        with open(fname, 'w') as fout:
+            for sent in sents:
+                res = jieba.cut(sent)
+                sent = " ".join(res)
+                sent = re.sub(' +', ' ', sent)
+                fout.write(sent+"\n")
 
     _write(prepro_train1, corpus_dir+"prepro/train.zh")
-    _write(prepro_train2, corpus_dir+"prepro/train.en")
+    _write_cut(prepro_train2, corpus_dir+"prepro/train.en")
     _write(prepro_train1+prepro_train2, corpus_dir+"prepro/train")
     _write(prepro_eval1, corpus_dir+"prepro/eval.zh")
-    _write(prepro_eval2, corpus_dir+"prepro/eval.en")
+    _write_cut(prepro_eval2, corpus_dir+"prepro/eval.en")
     _write(prepro_test1, corpus_dir+"prepro/test.zh")
-    _write(prepro_test2, corpus_dir+"prepro/test.en")
+    _write_cut(prepro_test2, corpus_dir+"prepro/test.en")
 
-    logging.info("# Train a joint BPE model with sentencepiece")
-    os.makedirs(corpus_dir+"segmented", exist_ok=True)
-    train = '--input=corpus/iwslt2015/prepro/train --pad_id=0 --unk_id=1 \
-             --bos_id=2 --eos_id=3\
-             --model_prefix=corpus/iwslt2015/segmented/bpe --vocab_size={} \
-             --model_type=bpe'.format(vocab_size)
-    spm.SentencePieceTrainer.Train(train)
+    # logging.info("# Train a joint BPE model with sentencepiece")
+    # os.makedirs(corpus_dir+"segmented", exist_ok=True)
+    # train = '--input=corpus/iwslt2015/prepro/train --pad_id=0 --unk_id=1 \
+    #          --bos_id=2 --eos_id=3\
+    #          --model_prefix=corpus/iwslt2015/segmented/bpe --vocab_size={} \
+    #          --model_type=bpe'.format(vocab_size)
+    # spm.SentencePieceTrainer.Train(train)
 
-    logging.info("# Load trained bpe model")
-    sp = spm.SentencePieceProcessor()
-    sp.Load(corpus_dir+"segmented/bpe.model")
+    # logging.info("# Load trained bpe model")
+    # sp = spm.SentencePieceProcessor()
+    # sp.Load(corpus_dir+"segmented/bpe.model")
 
-    logging.info("# Segment")
-    def _segment_and_write(sents, fname):
-        with open(fname, "w") as fout:
-            for sent in sents:
-                pieces = sp.EncodeAsPieces(sent)
-                fout.write(" ".join(pieces) + "\n")
+    # logging.info("# Segment")
+    # def _segment_and_write(sents, fname):
+    #     with open(fname, "w") as fout:
+    #         for sent in sents:
+    #             pieces = sp.EncodeAsPieces(sent)
+    #             fout.write(" ".join(pieces) + "\n")
 
-    _segment_and_write(prepro_train1, corpus_dir+"segmented/train.zh.bpe")
-    _segment_and_write(prepro_train2, corpus_dir+"segmented/train.en.bpe")
-    _segment_and_write(prepro_eval1, corpus_dir+"segmented/eval.zh.bpe")
-    _segment_and_write(prepro_eval2, corpus_dir+"segmented/eval.en.bpe")
-    _segment_and_write(prepro_test1, corpus_dir+"segmented/test.zh.bpe")
+    # _segment_and_write(prepro_train1, corpus_dir+"segmented/train.zh.bpe")
+    # _segment_and_write(prepro_train2, corpus_dir+"segmented/train.en.bpe")
+    # _segment_and_write(prepro_eval1, corpus_dir+"segmented/eval.zh.bpe")
+    # _segment_and_write(prepro_eval2, corpus_dir+"segmented/eval.en.bpe")
+    # _segment_and_write(prepro_test1, corpus_dir+"segmented/test.zh.bpe")
 
-    logging.info("Let's see how segmented data look like")
-    print("train1:", open(corpus_dir+"segmented/train.zh.bpe",'r').readline())
-    print("train2:", open(corpus_dir+"segmented/train.en.bpe", 'r').readline())
-    print("eval1:", open(corpus_dir+"segmented/eval.zh.bpe", 'r').readline())
-    print("eval2:", open(corpus_dir+"segmented/eval.en.bpe", 'r').readline())
-    print("test1:", open(corpus_dir+"segmented/test.zh.bpe", 'r').readline())
+    # logging.info("Let's see how segmented data look like")
+    # print("train1:", open(corpus_dir+"segmented/train.zh.bpe",'r').readline())
+    # print("train2:", open(corpus_dir+"segmented/train.en.bpe", 'r').readline())
+    # print("eval1:", open(corpus_dir+"segmented/eval.zh.bpe", 'r').readline())
+    # print("eval2:", open(corpus_dir+"segmented/eval.en.bpe", 'r').readline())
+    # print("test1:", open(corpus_dir+"segmented/test.zh.bpe", 'r').readline())
 
 if __name__ == '__main__':
     # hparams = Hparams()

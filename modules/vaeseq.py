@@ -204,17 +204,18 @@ class VAESEQ:
             'encoder_loss': encoder_loss, 'decoder_loss': decoder_loss, 'step': step}
 
     def merged_seq_train(self, sess, x_enc_inp, x_dec_inp, x_dec_out, y_enc_inp, y_dec_inp, y_dec_out, x_enc_inp_oovs, max_oovs):
-        feed_dict = {
-            self.x_enc_inp: x_enc_inp,
-            self.x_dec_inp: x_dec_inp,
-            self.x_dec_out: x_dec_out,
-            self.y_enc_inp: y_enc_inp,
-            self.y_dec_inp: y_dec_inp,
-            self.y_dec_out: y_dec_out,
-            self.x_enc_inp_oovs: x_enc_inp_oovs,
-            self.max_oovs: max_oovs
-            # self.attention_data: atten_data
-        }
+        if args.isPointer:
+            feed_dict = {
+                self.x_enc_inp: x_enc_inp, self.x_dec_inp: x_dec_inp, self.x_dec_out: x_dec_out,
+                self.y_enc_inp: y_enc_inp, self.y_dec_inp: y_dec_inp, self.y_dec_out: y_dec_out,
+                self.x_enc_inp_oovs: x_enc_inp_oovs, self.max_oovs: max_oovs
+            }
+        else:
+            feed_dict = {
+                self.x_enc_inp: x_enc_inp, self.x_dec_inp: x_dec_inp, self.x_dec_out: x_dec_out,
+                self.y_enc_inp: y_enc_inp, self.y_dec_inp: y_dec_inp, self.y_dec_out: y_dec_out
+            }
+            
         _, summaries, loss, trans_loss, encoder_loss, decoder_loss, step = sess.run(
             [self.merged_train_op, self.merged_summary_op, self.merged_loss, self.merged_loss_seq, self.encoder_model.loss, self.decoder_model.loss, self.global_step],
                 feed_dict)
