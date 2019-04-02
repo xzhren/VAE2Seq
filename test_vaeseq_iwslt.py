@@ -5,7 +5,7 @@ import tensorflow as tf
 from tqdm import tqdm
 import os
 
-from data.data_cnndaily import CNNDAILY
+from data.data_iwslt import IWSLT
 from modules.vaeseq import VAESEQ
 from config import args
 from measures import evaluation_utils
@@ -18,21 +18,23 @@ def main():
     ## Parameters
     if args.exp == "NONE":
         args.exp = args.graph_type
-    args.enc_max_len =  400
+    args.enc_max_len =  100
     args.dec_max_len = 100
-    args.vocab_limit = 50000
+    args.vocab_limit = 35000
     exp_path = "./saved/"+args.exp+"/"
     args.training = False
-    test_len = 11490
+    test_len = 1261
     args.data_len = test_len
     print(args)
 
     ## DataLoader
-    dataloader = CNNDAILY(batch_size=args.batch_size, vocab_limit=args.vocab_limit, max_input_len=args.enc_max_len, max_output_len=args.dec_max_len)
+    dataloader = IWSLT(batch_size=args.batch_size, vocab_limit=args.vocab_limit, max_input_len=args.enc_max_len, max_output_len=args.dec_max_len)
     params = {
         'vocab_size': len(dataloader.word2idx),
         'word2idx': dataloader.word2idx,
         'idx2word': dataloader.idx2word,
+        'idx2token': dataloader.idx2token,
+        'token2id': dataloader.token2idx,
         'loss_type': args.loss_type,
         'graph_type': args.graph_type}
     print('Vocab Size:', params['vocab_size'])
@@ -55,7 +57,7 @@ def main():
         ref_file = exp_path+"test.input.txt"
         trans_file = exp_path+"test.output.txt"
         result_file = exp_path+"test."+restore_path.split("-")[-1]+".result.txt"
-        test_file = "./corpus/cnndaily/test.txt.tgt.tagged"
+        test_file = "./corpus/iwslt2015/prepro/test.en"
 
         # Test Dir
         dataloader.trans_in_ref(finpath=test_file, foutpath=ref_file)
@@ -64,7 +66,7 @@ def main():
         print("[PAEPEAR DATASET]")
 
         # Test DataSet
-        test_file = "./corpus/cnndaily/test"
+        test_file = "./corpus/iwslt2015/prepro/test"
         batcher = dataloader.load_data(fpath=test_file)
         for _ in tqdm(range((test_len-1)//args.batch_size+1)):
             try:

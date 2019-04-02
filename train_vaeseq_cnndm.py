@@ -88,7 +88,7 @@ def main():
                 (x_enc_inp, x_dec_inp_full, x_dec_out, y_enc_inp, y_dec_inp_full, y_dec_out), x_enc_inp_oovs, data_oovs, _ = next(batcher)
                 x_dec_inp = dataloader.update_word_dropout(x_dec_inp_full)
                 y_dec_inp = dataloader.update_word_dropout(y_dec_inp_full)
-                max_oovs_len = max([len(oov) for oov in data_oovs])
+                max_oovs_len = max([len(oov) for oov in data_oovs]) if len(data_oovs) > 0 else 0
             except StopIteration:
                 print("there are no more examples")
                 break
