@@ -417,6 +417,18 @@ class BaseVAE:
         print('O: %s' % ' '.join([idx2word[idx] for idx in predicted_ids]))
         print('-'*12)
 
+    def point_reconstruct(self, sess, sentence):
+        idx2word = self.params['idx2word']
+        sentence = [self.get_new_w(w) for w in sentence.split()][:self.params['max_len']]
+        print('I: %s' % ' '.join([idx2word[idx] for idx in sentence]))
+        print()
+        sentence = sentence + [self.params['word2idx'][PAD_STRING]] * (self.params['max_len']-len(sentence))
+        predicted_ids, predict_z = sess.run([self.predicted_ids, self.z], {self.enc_inp: np.atleast_2d(sentence)})
+        predicted_ids = predicted_ids[0]
+        print('O: %s' % ' '.join([idx2word[idx] for idx in predicted_ids]))
+        print('-'*12)
+        return predict_z
+
     def evaluation(self, sess, enc_inp, outputfile):
         idx2word = self.params['idx2word']
         predicted_ids_lt = sess.run(self.predicted_ids, {self.enc_inp:enc_inp})
@@ -432,6 +444,14 @@ class BaseVAE:
         predicted_ids = sess.run(self.predicted_ids,
                                 {self._batch_size: 1,
                                  self.z: np.random.randn(1, args.latent_size),
+                                 self.enc_seq_len: [self.params['max_len']]})[0]
+        print('G: %s' % ' '.join([self.params['idx2word'][idx] for idx in predicted_ids]))
+        print('-'*12)
+
+    def generate_byz(self, sess, z):
+        predicted_ids = sess.run(self.predicted_ids,
+                                {self._batch_size: 1,
+                                 self.z: z,
                                  self.enc_seq_len: [self.params['max_len']]})[0]
         print('G: %s' % ' '.join([self.params['idx2word'][idx] for idx in predicted_ids]))
         print('-'*12)
