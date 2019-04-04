@@ -39,8 +39,8 @@ class VRAE:
     def _build_inputs(self):
         # placeholders
         self.enc_inp = tf.placeholder(tf.int32, [None, args.max_len])
-        self.dec_inp = tf.placeholder(tf.int32, [None, args.max_len+1])
-        self.dec_out = tf.placeholder(tf.int32, [None, args.max_len+1])
+        self.dec_inp = tf.placeholder(tf.int32, [None, args.max_dec_len+1])
+        self.dec_out = tf.placeholder(tf.int32, [None, args.max_dec_len+1])
         # global helpers
         self._batch_size = tf.shape(self.enc_inp)[0]
         self.enc_seq_len = tf.count_nonzero(self.enc_inp, 1, dtype=tf.int32)
@@ -110,7 +110,7 @@ class VRAE:
             decoder_output, _, _ = tf.contrib.seq2seq.dynamic_decode(
                 decoder = decoder)
             print("decoder_output:", decoder_output) # 
-            logits = self._dynamic_time_pad(decoder_output.rnn_output, args.max_dec_len)
+            logits = self._dynamic_time_pad(decoder_output.rnn_output, args.max_dec_len+1)
             print("logits:", logits) # 
         
             with tf.variable_scope('decoder'):
@@ -156,7 +156,7 @@ class VRAE:
 
     def _nll_loss_fn(self):
         # mask_fn = lambda l : tf.sequence_mask(l, tf.reduce_max(l), dtype=tf.float32)
-        mask_fn = lambda l : tf.sequence_mask(l, args.max_dec_len, dtype=tf.float32)
+        mask_fn = lambda l : tf.sequence_mask(l, args.max_dec_len+1, dtype=tf.float32)
         mask = mask_fn(self.dec_seq_len) # b x t 64 x ?
         if (args.num_sampled <= 0) or (args.num_sampled >= self.params['vocab_size']):
             return tf.reduce_sum(tf.contrib.seq2seq.sequence_loss(
