@@ -182,6 +182,7 @@ class CNNDAILY(BaseDataLoader):
     def trans_in_ref(self, finpath="./corpus/reddit/test.txt.tgt.tagged", foutpath="./saved/test.input.txt"):
         with open(finpath) as f, open(foutpath, "w") as fout:  
             for i, line in enumerate(f):
+                line = line.split(START_STRING)[1]
                 info = line.split(END_STRING)[0]
                 fout.write(info.strip()+"\n")
 
