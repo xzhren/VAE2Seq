@@ -29,12 +29,14 @@ def main():
     args.data_len = train_data_len
     train_data_path = args.train_data
     EPOCH_STEPS = (train_data_len-1)//args.batch_size+1
+    args.diff_input = True
     print(args)
 
     ## DataLoader
     dataloader = IWSLT(batch_size=args.batch_size, vocab_limit=args.vocab_limit, max_input_len=args.enc_max_len, max_output_len=args.dec_max_len)
     params = {
         'vocab_size': len(dataloader.word2idx),
+        'vocab_size_encoder': len(dataloader.token2idx),
         'word2idx': dataloader.word2idx,
         'idx2word': dataloader.idx2word,
         'idx2token': dataloader.idx2token,

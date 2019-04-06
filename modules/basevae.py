@@ -114,9 +114,14 @@ class BaseVAE:
         # the embedding is shared between encoder and decoder
         # since the source and the target for an autoencoder are the same
         with tf.variable_scope('encoder'):
-            tied_embedding = tf.get_variable('tied_embedding',
-                [self.params['vocab_size'], args.embedding_dim],
-                tf.float32)
+            if args.diff_input:
+                tied_embedding = tf.get_variable('tied_embedding_encoder',
+                    [self.params['vocab_size_encoder'], args.embedding_dim],
+                    tf.float32)
+            else:
+                tied_embedding = tf.get_variable('tied_embedding',
+                    [self.params['vocab_size'], args.embedding_dim],
+                    tf.float32)
             bi_encoder_outputs, (state_fw, state_bw) = tf.nn.bidirectional_dynamic_rnn(
                 cell_fw = self._rnn_cell(args.rnn_size//2),
                 cell_bw = self._rnn_cell(args.rnn_size//2), 
@@ -126,7 +131,12 @@ class BaseVAE:
             self.encoder_outputs = tf.concat(bi_encoder_outputs, axis=2)
 
             encoded_state = tf.concat((state_fw, state_bw), -1)
-            self.tied_embedding = tied_embedding
+            if args.diff_input:
+                self.tied_embedding = tf.get_variable('tied_embedding',
+                    [self.params['vocab_size'], args.embedding_dim],
+                    tf.float32)
+            else:
+                self.tied_embedding = tied_embedding
         return encoded_state
 
     def _reparam(self, encoded_state):
