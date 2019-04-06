@@ -25,11 +25,13 @@ def main():
     args.training = False
     test_len = 1261
     args.data_len = test_len
+    args.diff_input = True
     print(args)
 
     ## DataLoader
     dataloader = IWSLT(batch_size=args.batch_size, vocab_limit=args.vocab_limit, max_input_len=args.enc_max_len, max_output_len=args.dec_max_len)
     params = {
+        'vocab_size_encoder': len(dataloader.idx2token),
         'vocab_size': len(dataloader.word2idx),
         'word2idx': dataloader.word2idx,
         'idx2word': dataloader.idx2word,

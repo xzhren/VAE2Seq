@@ -25,14 +25,17 @@ def main():
     args.isPointer = False
     args.vocab_limit = 35000
     test_len = 1261
+    args.diff_input = True
     print(args)
 
     ## Parameters
     dataloader = IWSLT(batch_size=args.batch_size, vocab_limit=args.vocab_limit, max_input_len=args.max_len, max_output_len=args.max_dec_len)
     params = {
+        'vocab_size_encoder': len(dataloader.idx2token),
         'vocab_size': len(dataloader.word2idx),
         'word2idx': dataloader.word2idx,
-        'idx2word': dataloader.idx2word,}
+        'idx2word': dataloader.idx2word,
+        'idx2token': dataloader.idx2token}
     print('Vocab Size:', params['vocab_size'])
 
     ## ModelInit    
