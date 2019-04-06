@@ -219,7 +219,7 @@ class BaseVAE:
         # logits = decoder_output.rnn_output
         if self.isPointer:
             logits, attens = tf.split(logits, [args.rnn_size+args.rnn_size, args.enc_max_len], axis=2)
-            _, states = tf.split(logits, [args.rnn_size, args.rnn_size], axis=2)
+            states, _ = tf.split(logits, [args.rnn_size, args.rnn_size], axis=2)
             pointer_proj = tf.layers.Dense(1, activation=tf.sigmoid, _scope='pointer_proj_dense', _reuse=reuse)
             pointer = pointer_proj.apply(states) 
             # print("logits:", logits)
