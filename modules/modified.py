@@ -218,12 +218,14 @@ class PointerBeamSearchDecoder(RewriteBeamSearchDecoder):
                  output_layer=None,
                  pointer_layer=None,
                  pointer_data=None,
+                 mask_oovs=None,
                  length_penalty_weight=0.0):
         super().__init__(cell, embedding, start_tokens, end_token, initial_state, beam_width, output_layer, length_penalty_weight)
         self.z = concat_z
         self.encoder_ouputs = encoder_ouputs # b x t x e
         self.pointer_layer = pointer_layer
         self.pointer_data = pointer_data
+        self.mask_oovs = mask_oovs
 
     def initialize(self, name=None):
         (finished, start_inputs, initial_state) = super().initialize(name)
@@ -268,7 +270,11 @@ class PointerBeamSearchDecoder(RewriteBeamSearchDecoder):
             if self._output_layer is not None:
                 cell_outputs = self._output_layer(cell_outputs)
                 vocab_dists = cell_outputs * (1-pointer) # bxbeamxv
-                attens_dist = attens * pointer
+
+                attens = attens * self.mask_oovs
+                attens_sum = tf.reduce_sum(attens, axis=2, keep_dims=True)
+                attens_dist = attens / (attens_sum+1e-13) * pointer
+                
                 def _calc_final_dist(vocab_dists, attn_dists):
                     extra_zeros, indices, shape = self.pointer_data
                     vocab_dists_extended = tf.concat(axis=2, values=[vocab_dists, extra_zeros])

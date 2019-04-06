@@ -10,7 +10,7 @@ from data.data_reddit import START_TOKEN, END_TOKEN, PAD_TOKEN, UNK_STRING, PAD_
 class BaseVAE:
     def __init__(self, params, inputs, prefix, 
             context_encoder_ouputs=None, 
-            x_enc_inp_oovs=None, max_oovs=None):
+            x_enc_inp_oovs=None, max_oovs=None, mask_oovs=None):
         self.prefix = prefix
         self.params = params
         self.context_encoder_ouputs = context_encoder_ouputs
@@ -18,6 +18,7 @@ class BaseVAE:
         # self.enc_atten_label = enc_atten_label
         self.x_enc_inp_oovs = x_enc_inp_oovs
         self.max_oovs = max_oovs
+        self.mask_oovs = mask_oovs
         if prefix == "decoder":
             self.isContext = args.isContext
             self.isPointer = args.isPointer
@@ -230,8 +231,11 @@ class BaseVAE:
         logits_dist = lin_proj.apply(logits) 
 
         if self.isPointer:
-            logits_dist = logits_dist * (1-pointer)    
-            self.attens = attens * pointer
+            logits_dist = logits_dist * (1-pointer)   
+            mask_oovs = tf.tile(tf.expand_dims(self.mask_oovs, 1), [1,self.params['max_dec_len'],1])
+            attens = attens * mask_oovs
+            attens_sum = tf.reduce_sum(attens, axis=2, keep_dims=True)
+            self.attens = attens / (attens_sum+1e-13) * pointer
             logits_dist = self._calc_final_dist(logits_dist, self.attens)
 
 
@@ -293,6 +297,7 @@ class BaseVAE:
                 output_layer = tf.layers.Dense(self.params['vocab_size'], _scope="out_proj_dense", _reuse=True),
                 pointer_layer = tf.layers.Dense(1, activation=tf.sigmoid, _scope='pointer_proj_dense', _reuse=True),
                 pointer_data = self._calc_final_dist_decoder(),
+                mask_oovs = tf.tile(tf.expand_dims(self.mask_oovs, 1), [1,args.beam_width,1]),
                 concat_z = tiled_z,
                 encoder_ouputs = self.context_encoder_ouputs)
         elif self.isContext:
@@ -338,6 +343,8 @@ class BaseVAE:
         # mask_fn = lambda l : tf.sequence_mask(l, tf.reduce_max(l), dtype=tf.float32)
         mask_fn = lambda l : tf.sequence_mask(l, self.params['max_dec_len'], dtype=tf.float32)
         mask = mask_fn(self.dec_seq_len) # b x t = 64 x ?
+        mask_fn = lambda l : tf.sequence_mask(l, self.params['max_len'], dtype=tf.float32)
+        self.dec_seq_len_mask = mask_fn(self.enc_seq_len)
         return tf.reduce_sum(tf.contrib.seq2seq.sequence_loss(
             logits = self.training_logits,
             targets = self.dec_out,

@@ -57,8 +57,9 @@ class VAESEQ:
             params['max_dec_len'] = args.dec_max_len + 1
             
             if args.isPointer:
+                mask_oovs = self.encoder_model.dec_seq_len_mask
                 self.decoder_model = BaseVAE(params, decodervae_inputs, "decoder", 
-                            self.encoder_model.encoder_outputs, self.x_enc_inp_oovs, self.max_oovs)
+                            self.encoder_model.encoder_outputs, self.x_enc_inp_oovs, self.max_oovs, mask_oovs)
             elif args.isContext:
                 self.decoder_model = BaseVAE(params, decodervae_inputs, "decoder", self.encoder_model.encoder_outputs)
             else:
@@ -308,7 +309,23 @@ class VAESEQ:
         #     {self.decoder_model._batch_size: batch_size, self.x_enc_inp: enc_inp, self.y_enc_inp: enc_inp, self.decoder_model.enc_seq_len: [args.dec_max_len]})
         for i, predicted_ids in enumerate(predicted_ids_lt):
             with open(outputfile, "a") as f:
-                predicted_ids_tokens = [idx2word[idx] if idx < len(idx2word) else data_oovs[i][idx-len(idx2word)] for idx in predicted_ids]
+                try:
+                    predicted_ids_tokens = [idx2word[idx] if idx < len(idx2word) else data_oovs[i][idx-len(idx2word)] for idx in predicted_ids]
+                except:
+                    predicted_ids_tokens = []
+                    for idx in predicted_ids:
+                        if idx < len(idx2word):
+                            predicted_ids_tokens.append(idx2word[idx])
+                        else:
+                            if (idx-len(idx2word)) < len(data_oovs[i]):
+                                predicted_ids_tokens.append(data_oovs[i][idx-len(idx2word)])
+                            else:
+                                predicted_ids_tokens.append("UNK")
+                                print(idx, i, len(idx2word), len(data_oovs[i]), end="\t")
+                                print(data_oovs)
+                                # print(data_oovs[i])
+                                # print(data_oovs[i][idx-len(idx2word)])
+                    # raise Exception("Except")
                 # result = ' '.join([idx2word[idx] for idx in predicted_ids])
                 result = ' '.join(predicted_ids_tokens)
                 end_index = result.find(" </S> ")
@@ -327,32 +344,32 @@ class VAESEQ:
         return code_mean, code_logvar, desc_mean, desc_logvar
 
 
-    def evaluation_pointer(self, sess, enc_inp, outputfile, raw_inp):
-        idx2word = self.params['idx2word']
+    # def evaluation_pointer(self, sess, enc_inp, outputfile, raw_inp):
+    #     idx2word = self.params['idx2word']
         
-        masks, aids, pids = sess.run([self.mask, self.attens_ids, self.predicted_ids], 
-            {self.x_enc_inp:enc_inp, self.decoder_model.enc_seq_len: [args.dec_max_len], self.decoder_model._batch_size: args.batch_size})
+    #     masks, aids, pids = sess.run([self.mask, self.attens_ids, self.predicted_ids], 
+    #         {self.x_enc_inp:enc_inp, self.decoder_model.enc_seq_len: [args.dec_max_len], self.decoder_model._batch_size: args.batch_size})
 
-        masks, aids, pids = masks[:,:,0], aids[:,:,0], pids[:,:,0]
-        for i, (mask, aid, pid) in enumerate(zip(masks, aids, pids)):
-            # print(i, mask, aid, pid)
-            # print(raw_inp[i])
-            with open(outputfile, "a") as f:
-                result = ''
-                for m, a, p in zip(mask, aid, pid):
-                    # print(m, a, p)
-                    if m == 1: result += idx2word[p] + " "
-                    elif m ==0:
-                        if a >= len(raw_inp[i]):
-                            result += " UNK "
-                        else:
-                            result += raw_inp[i][a] + " "
-                    else: print("ERRRRRRRRRRORR!!!")
-                # result = ' '.join([idx2word[idx] for idx in predicted_ids])
-                result = result.strip()
-                # print(result)
-                end_index = result.find(" </S> ")
-                if end_index != -1:
-                    result = result[:end_index]
-                f.write('%s\n' % result)
-                # f.write('%s\n' % ' '.join([idx2word[idx] for idx in predicted_ids]))
+    #     masks, aids, pids = masks[:,:,0], aids[:,:,0], pids[:,:,0]
+    #     for i, (mask, aid, pid) in enumerate(zip(masks, aids, pids)):
+    #         # print(i, mask, aid, pid)
+    #         # print(raw_inp[i])
+    #         with open(outputfile, "a") as f:
+    #             result = ''
+    #             for m, a, p in zip(mask, aid, pid):
+    #                 # print(m, a, p)
+    #                 if m == 1: result += idx2word[p] + " "
+    #                 elif m ==0:
+    #                     if a >= len(raw_inp[i]):
+    #                         result += " UNK "
+    #                     else:
+    #                         result += raw_inp[i][a] + " "
+    #                 else: print("ERRRRRRRRRRORR!!!")
+    #             # result = ' '.join([idx2word[idx] for idx in predicted_ids])
+    #             result = result.strip()
+    #             # print(result)
+    #             end_index = result.find(" </S> ")
+    #             if end_index != -1:
+    #                 result = result[:end_index]
+    #             f.write('%s\n' % result)
+    #             # f.write('%s\n' % ' '.join([idx2word[idx] for idx in predicted_ids]))
