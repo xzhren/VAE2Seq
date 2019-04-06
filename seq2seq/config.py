@@ -15,5 +15,6 @@ parser.add_argument('--anneal_max', type=float, default=1.0)
 parser.add_argument('--anneal_bias', type=int, default=6000)
 parser.add_argument('--num_epoch', type=int, default=30)
 parser.add_argument('--display_loss_step', type=int, default=50)
+parser.add_argument('--diff_input', type=bool, default=False)
 
 args = parser.parse_args()
