@@ -273,7 +273,7 @@ class BeamSearchDecoder(decoder.Decoder):
   def output_size(self):
     # Return the cell output and the id
     return BeamSearchDecoderOutput(
-        attens=tensor_shape.TensorShape([self._beam_width, args.enc_max_len+1]),
+        attens=tensor_shape.TensorShape([self._beam_width, args.enc_max_len]),
         scores=tensor_shape.TensorShape([self._beam_width]),
         predicted_ids=tensor_shape.TensorShape([self._beam_width]),
         parent_ids=tensor_shape.TensorShape([self._beam_width]))
@@ -649,7 +649,7 @@ def _beam_search_step(time, logits, next_cell_state, beam_state, batch_size,
       finished=next_finished)
 
   output = BeamSearchDecoderOutput(
-      attens=tf.zeros([batch_size,beam_width,args.enc_max_len+1]),
+      attens=tf.zeros([batch_size,beam_width,args.enc_max_len]),
       scores=next_beam_scores,
       predicted_ids=next_word_ids,
       parent_ids=next_beam_ids)

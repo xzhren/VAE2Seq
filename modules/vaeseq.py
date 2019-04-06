@@ -69,10 +69,7 @@ class VAESEQ:
             self.transformer = Transformer(self.encoder_model, self.decoder_model, params['graph_type'], self.global_step)
         with tf.variable_scope('decodervae/decoding', reuse=True):
             self.training_logits = self.decoder_model._decoder_training(self.transformer.predition, reuse=True)
-            # if args.isPointer:
-                # self.mask, self.attens_ids, self.predicted_ids = self.decoder_model._decoder_inference(self.transformer.predition)
-            # else:
-            self.predicted_ids_op, _ = self.decoder_model._decoder_inference(self.transformer.predition)
+            self.predicted_ids_op, self.attens = self.decoder_model._decoder_inference(self.transformer.predition)
     
     def _gradient_clipping(self, loss_op):
         params = tf.trainable_variables()
@@ -333,6 +330,27 @@ class VAESEQ:
                     result = result[:end_index]
                 f.write('%s\n' % result)
                 # f.write('%s\n' % ' '.join([idx2word[idx] for idx in predicted_ids]))
+
+    def export_attentions(self, sess, enc_inp, dec_inp):
+        idx2word = self.params['idx2word']
+        idx2token = self.params['idx2token']
+
+        batch_size = sess.run(self.encoder_model._batch_size, {self.x_enc_inp:enc_inp})
+        feed_dict = {
+            self.x_enc_inp : enc_inp, 
+            self.decoder_model.enc_seq_len : [args.dec_max_len], 
+            self.decoder_model._batch_size : batch_size
+        }
+
+        attens_values, predict_y = sess.run([self.attens, self.predicted_ids_op], feed_dict)
+
+        result = []
+        for att, xtxt, ytxt in zip(attens_values, enc_inp, predict_y):
+            xtxt = [idx2token[x] for x in xtxt]
+            ytxt = [idx2word[x] for x in ytxt]
+            result.append([att, xtxt, ytxt])
+            
+        return result
 
     def export_vectors(self, sess, enc_inp, dec_inp):
         code_mean, code_logvar = sess.run(

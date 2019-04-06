@@ -104,10 +104,10 @@ class BaseVAE:
             tf.summary.histogram(prefix+"_z_mean", self.z_mean)
             tf.summary.histogram(prefix+"_z_logvar", self.z_logvar)
             tf.summary.histogram(prefix+"_z", self.z)
-            if self.isPointer:
+            if self.isPointer or self.isContext:
                 # tf.summary.scalar(prefix+"_pointer_loss", self.pointer_loss)
                 # tf.summary.scalar(prefix+"_raw_nll_loss", self.raw_nll_loss)
-                tf.summary.image(prefix+"attention", tf.expand_dims(self.attens, -1))
+                tf.summary.image(prefix+"_attention", tf.expand_dims(self.attens, -1), max_outputs=1)
                 # tf.summary.image("attention", tf.expand_dims(attention[:1], -1))
             self.merged_summary_op = tf.summary.merge_all()
 
@@ -217,6 +217,9 @@ class BaseVAE:
         
         logits = self._dynamic_time_pad(decoder_output.rnn_output, self.params['max_dec_len'])
         # logits = decoder_output.rnn_output
+        if self.isContext:
+            logits, attens = tf.split(logits, [args.rnn_size+args.rnn_size, args.enc_max_len], axis=2)
+            self.attens = attens # b x dec_l x enc_l
         if self.isPointer:
             logits, attens = tf.split(logits, [args.rnn_size+args.rnn_size, args.enc_max_len], axis=2)
             states, _ = tf.split(logits, [args.rnn_size, args.rnn_size], axis=2)
@@ -330,6 +333,12 @@ class BaseVAE:
         print("inference decoder_output:", decoder_output)
         # print("inference attens:", decoder_output.beam_search_decoder_output.attens) # ?, ?, 5, 400
         # print("inference scores:", decoder_output.beam_search_decoder_output.scores) # ?, ?, 5
+        
+        if self.isContext:
+            print("inference predicted_ids:", decoder_output.predicted_ids)
+            print("inference attens:", decoder_output.beam_search_decoder_output.attens)
+            print("inference scores:", decoder_output.beam_search_decoder_output.scores)
+            return decoder_output.predicted_ids[:, :, 0], decoder_output.beam_search_decoder_output.attens[:, :, 0]
     
         return decoder_output.predicted_ids[:, :, 0], decoder_output.beam_search_decoder_output.scores[:, :, 0]    
     

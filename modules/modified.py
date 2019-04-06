@@ -84,14 +84,15 @@ class ContextDecoder(BasicDecoder):
         ### end context vector
 
         ### outputs_merged: state, context
-        outputs_merged = array_ops.concat([state, context_vec], -1) # bx[c+c]
+        attens = tf.squeeze(attens, [2]) # bxt
+        outputs_merged = array_ops.concat([state, context_vec, attens], -1) # bx[c+c+t]=bx656
         outputs = BasicDecoderOutput(outputs_merged, outputs[1])
         ## BasicDecoderOutput - rnn_output, sample_id
         ### end outputs_merged
 
         return (outputs, next_state, next_inputs, finished)
 
-class ContextBeamSearchDecoder(BeamSearchDecoder):
+class ContextBeamSearchDecoder(RewriteBeamSearchDecoder):
     def __init__(self,
                  cell,
                  embedding,
@@ -148,7 +149,7 @@ class ContextBeamSearchDecoder(BeamSearchDecoder):
             if self._output_layer is not None:
                 cell_outputs = self._output_layer(cell_outputs)
 
-            beam_search_output, beam_search_state = _beam_search_step(
+            beam_search_output, beam_search_state = _rewrite_beam_search_step(
                 time=time,
                 logits=cell_outputs,
                 next_cell_state=next_cell_state,
@@ -166,6 +167,10 @@ class ContextBeamSearchDecoder(BeamSearchDecoder):
 
             ### next_inputs vector
             next_inputs = array_ops.concat([next_inputs, self.z], -1) # bxbeamx[e+c+c]=bx5x640
+            attens = tf.transpose(attens, [0,2,1]) # bxbeamxt
+            # pointer = self.pointer_layer.apply(next_cell_state) # bxbeamx1
+            # outputs_merged = array_ops.concat([attens, pointer], -1) # bxbeamx[c+t]=bx5x656
+            beam_search_output = RewriteBeamSearchDecoderOutput(attens, beam_search_output[1], beam_search_output[2], beam_search_output[3])
             ### next_inputs vector
         
         return (beam_search_output, beam_search_state, next_inputs, finished)
