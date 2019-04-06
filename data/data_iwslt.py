@@ -83,7 +83,7 @@ class IWSLT():
                     tokens_src = list(src.strip())
                     tokens_tgt = tgt.strip().split(" ")
 
-                    tokens_ids_src = [self.word2idx[t] if t in self.word2idx else UNK_TOKEN for t in tokens_src]
+                    tokens_ids_src = [self.token2idx[t] if t in self.token2idx else UNK_TOKEN for t in tokens_src]
                     x_data.append(tokens_ids_src)
                     if args.isPointer:
                         tokens_ids_src, tokens_ids_tgt, oovs = self._oov_data(tokens_src, tokens_tgt)
@@ -130,13 +130,13 @@ class IWSLT():
             tokens_ids = []
             oovs = []
             for t in tokens_src:
-                if t in self.word2idx:
-                    tokens_ids.append(self.word2idx[t])
+                if t in self.token2idx:
+                    tokens_ids.append(self.token2idx[t])
                 else:
                     if t not in oovs:
                         oovs.append(t)
                     oov_index = oovs.index(t)
-                    tokens_ids.append(len(self.word2idx)+oov_index)
+                    tokens_ids.append(len(self.token2idx)+oov_index)
             return tokens_ids, oovs
         def _oov_tokens_tgt_one(tokens_tgt, oovs):
             tokens_ids = []
