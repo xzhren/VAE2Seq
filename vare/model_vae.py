@@ -59,9 +59,14 @@ class VRAE:
         # the embedding is shared between encoder and decoder
         # since the source and the target for an autoencoder are the same
         with tf.variable_scope('encoder'):
-            tied_embedding = tf.get_variable('tied_embedding',
-                [self.params['vocab_size'], args.embedding_dim],
-                tf.float32)
+            if args.diff_input:
+                tied_embedding = tf.get_variable('tied_embedding_encoder',
+                    [self.params['vocab_size_encoder'], args.embedding_dim],
+                    tf.float32)
+            else:
+                tied_embedding = tf.get_variable('tied_embedding',
+                    [self.params['vocab_size'], args.embedding_dim],
+                    tf.float32)
             _, (state_fw, state_bw) = tf.nn.bidirectional_dynamic_rnn(
                 cell_fw = self._rnn_cell(args.rnn_size//2),
                 cell_bw = self._rnn_cell(args.rnn_size//2), 
@@ -106,7 +111,7 @@ class VRAE:
         return tensor
 
     def _decoder_training(self, z):
-        with tf.variable_scope('encoder', reuse=True):
+        with tf.variable_scope('encoder', reuse=tf.AUTO_REUSE):
             tied_embedding = tf.get_variable('tied_embedding', [self.params['vocab_size'], args.embedding_dim])
 
         with tf.variable_scope('decoding'):
@@ -223,7 +228,10 @@ class VRAE:
 
     def reconstruct(self, sess, sentence, sentence_dropped):
         idx2word = self.params['idx2word']
-        print('I: %s' % ' '.join([idx2word[idx] for idx in sentence]))
+        if args.diff_input:
+            print('I: %s' % ' '.join([self.params['idx2token'][idx] for idx in sentence]))
+        else:
+            print('I: %s' % ' '.join([idx2word[idx] for idx in sentence]))
         print()
         print('D: %s' % ' '.join([idx2word[idx] for idx in sentence_dropped]))
         print()

@@ -18,5 +18,6 @@ parser.add_argument('--display_loss_step', type=int, default=50)
 
 parser.add_argument('--cuda', type=int, default=2)
 parser.add_argument('--exp', type=str, default="NONE")
+parser.add_argument('--diff_input', type=bool, default=False)
 
 args = parser.parse_args()
