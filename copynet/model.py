@@ -1,5 +1,7 @@
 from config import args
-from modified import ModifiedBasicDecoder, ModifiedBeamSearchDecoder
+from modified import ContextDecoder as ModifiedBasicDecoder
+from modified import ContextBeamSearchDecoder as ModifiedBeamSearchDecoder
+# ModifiedBasicDecoder, ModifiedBeamSearchDecoder
 
 import tensorflow as tf
 import numpy as np
@@ -134,8 +136,9 @@ class VRAE:
 
     def _decoder_inference(self, encoder_outputs, encoded_state):
         tiled_z = tf.tile(tf.expand_dims(encoded_state, 1), [1, args.beam_width, 1]) # b x e => b x beam x e
-        tiled_encoder_outputs = tf.tile(tf.expand_dims(encoder_outputs, 2), [1, 1, args.beam_width, 1]) # b x t x beam x e
-        
+        # tiled_encoder_outputs = tf.tile(tf.expand_dims(encoder_outputs, 2), [1, 1, args.beam_width, 1]) # b x t x beam x e
+        tiled_encoder_outputs = encoder_outputs
+
         with tf.variable_scope('encoder', reuse=True):
             tied_embedding = tf.get_variable('tied_embedding', [self.params['vocab_size'], args.embedding_dim])
 
@@ -170,31 +173,32 @@ class VRAE:
         # mask_fn = lambda l : tf.sequence_mask(l, tf.reduce_max(l), dtype=tf.float32)
         mask_fn = lambda l : tf.sequence_mask(l, args.max_dec_len+1, dtype=tf.float32)
         mask = mask_fn(self.dec_seq_len) # b x t 64 x ?
-        if (args.num_sampled <= 0) or (args.num_sampled >= self.params['vocab_size']):
+        # if (args.num_sampled <= 0) or (args.num_sampled >= self.params['vocab_size']):
+        if True:
             return tf.reduce_sum(tf.contrib.seq2seq.sequence_loss(
                 logits = self.training_logits,
                 targets = self.dec_out,
                 weights = mask,
                 average_across_timesteps = False,
                 average_across_batch = True))
-        else:
-            with tf.variable_scope('decoding/decoder/dense', reuse=True):
-                print("tf.get_variable('kernel'):", tf.get_variable('kernel')) # 200 x 35006
-                print("tf.get_variable('bias'):", tf.get_variable('bias')) # 35006
-                print("mask:", mask)
-                mask = tf.reshape(mask, [-1])
-                print("mask:", mask) # 3200 - 64 x 151 = 9664
-                print("tf.reshape(self.dec_out, [-1, 1]):", tf.reshape(self.dec_out, [-1, 1])) # 9664 x 1
-                print("tf.reshape(self.training_rnn_out, [-1, args.rnn_size]):", tf.reshape(self.training_rnn_out, [-1, args.rnn_size])) # ? x 200
-                print("args.num_sampled:", args.num_sampled)
-                return tf.reduce_sum(mask * tf.nn.sampled_softmax_loss(
-                    weights = tf.transpose(tf.get_variable('kernel')),
-                    biases = tf.get_variable('bias'),
-                    labels = tf.reshape(self.dec_out, [-1, 1]),
-                    inputs = tf.reshape(self.training_rnn_out, [-1, args.rnn_size]),
-                    num_sampled = args.num_sampled,
-                    num_classes = self.params['vocab_size'],
-                )) / tf.to_float(self._batch_size)
+        # else:
+        #     with tf.variable_scope('decoding/decoder/dense', reuse=True):
+        #         print("tf.get_variable('kernel'):", tf.get_variable('kernel')) # 200 x 35006
+        #         print("tf.get_variable('bias'):", tf.get_variable('bias')) # 35006
+        #         print("mask:", mask)
+        #         mask = tf.reshape(mask, [-1])
+        #         print("mask:", mask) # 3200 - 64 x 151 = 9664
+        #         print("tf.reshape(self.dec_out, [-1, 1]):", tf.reshape(self.dec_out, [-1, 1])) # 9664 x 1
+        #         print("tf.reshape(self.training_rnn_out, [-1, args.rnn_size]):", tf.reshape(self.training_rnn_out, [-1, args.rnn_size])) # ? x 200
+        #         print("args.num_sampled:", args.num_sampled)
+        #         return tf.reduce_sum(mask * tf.nn.sampled_softmax_loss(
+        #             weights = tf.transpose(tf.get_variable('kernel')),
+        #             biases = tf.get_variable('bias'),
+        #             labels = tf.reshape(self.dec_out, [-1, 1]),
+        #             inputs = tf.reshape(self.training_rnn_out, [-1, args.rnn_size]),
+        #             num_sampled = args.num_sampled,
+        #             num_classes = self.params['vocab_size'],
+        #         )) / tf.to_float(self._batch_size)
 
 
     def train_session(self, sess, enc_inp, dec_inp, dec_out):
