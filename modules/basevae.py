@@ -455,6 +455,10 @@ class BaseVAE:
         print('-'*12)
         return predict_z
 
+    def get_z_by_sent(self, sess, enc_inp):
+        _, predict_z = sess.run([self.predicted_ids, self.z], {self.enc_inp: enc_inp})
+        return predict_z
+
     def evaluation(self, sess, enc_inp, outputfile):
         idx2word = self.params['idx2word']
         predicted_ids_lt = sess.run(self.predicted_ids, {self.enc_inp:enc_inp})
