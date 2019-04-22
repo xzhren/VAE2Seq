@@ -122,8 +122,8 @@ def main():
                 # print("============= Show Decoder ===============")
                 # model.show_decoder(sess, y_enc_inp[-1], y_dec_inp[-1], LOGGER)
                 # print("============= Show Sample ===============")
-                # for i in range(3):
-                #     model.show_sample(sess, x_enc_inp[i], y_dec_out[i], LOGGER)
+                for i in range(3):
+                    model.show_sample(sess, x_enc_inp[i], y_dec_out[i], LOGGER)
                 LOGGER.flush()
                 args.training = True
                 

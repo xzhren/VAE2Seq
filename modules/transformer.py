@@ -15,12 +15,22 @@ class Transformer:
         self.input = encoder.z
         self.output = decoder.z
         self.global_step = global_step
+        self._batch_size = encoder._batch_size
 
         self.encoder_class_num = 300
         self.decoder_class_num = 300
 
         self._build_graph(encoder.loss, decoder.loss, graph_type)
         self._init_summary()
+
+    def _kl_loss_fn(self, mean_1, log_var_1, mean_2, log_var_2):
+        # return 0.5 * tf.reduce_sum(tf.exp(log_var_1) * tf.exp(log_var_2) + 
+        #     tf.square(mean_2 - mean_1) * tf.exp(log_var_2) - 1 +
+        #     log_var_2 - log_var_1) / tf.to_float(self._batch_size)
+        return tf.reduce_sum(
+            (tf.square(tf.exp(log_var_1)) + tf.square(mean_2 - mean_1)) / 
+            tf.square(tf.exp(log_var_2)) * 0.5 - 0.5 +
+            log_var_2 - log_var_1) / tf.to_float(self._batch_size)
 
     def _build_graph(self, encoder_loss, decoder_loss, graph_type):
         if graph_type == 'mlp_dist':
@@ -47,6 +57,7 @@ class Transformer:
                 self.loss_logvar = tf.losses.mean_squared_error(self.predition_logvar, self.output_logvar)
                 # self.merged_loss = (self.loss_mean+self.loss_logvar+self.loss)*1000 + encoder_loss + decoder_loss
                 self.merged_mse = (self.loss_mean+self.loss_logvar+self.loss)
+                self.kl_loss = self._kl_loss_fn(self.predition_mean, self.predition_logvar, self.output_mean, self.output_logvar)
 
 
     def build_loss(self, loss_op):

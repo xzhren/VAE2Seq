@@ -67,8 +67,8 @@ class BaseVAE:
             self.kl_loss = self._kl_loss_fn(self.z_mean, self.z_logvar)
         
             #######
-            loss_op = self.nll_loss + self.kl_w * self.kl_loss
-            # loss_op = self.nll_loss
+            # loss_op = self.nll_loss + self.kl_w * self.kl_loss
+            loss_op = self.nll_loss
             ######
             self.loss = loss_op
         

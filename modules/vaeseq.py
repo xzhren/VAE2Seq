@@ -106,6 +106,10 @@ class VAESEQ:
             elif model_type == 2:
                 self.merged_loss = self.merged_loss_seq + self.encoder_model.loss + self.decoder_model.loss
                 self.merged_loss_transformer = self.merged_loss_seq
+            elif model_type == 3:
+                self.merged_loss = self.transformer.kl_loss + self.encoder_model.loss + self.decoder_model.loss
+                self.merged_loss_transformer = self.transformer.kl_loss
+
 
         with tf.variable_scope('optimizer'):
             # self.global_step = tf.Variable(0, trainable=False)
@@ -130,6 +134,8 @@ class VAESEQ:
             train_loss = self.transformer.wasserstein_loss
         elif self.params['loss_type'] == 2:
             train_loss = self.merged_loss_seq
+        elif self.params['loss_type'] == 3:
+            train_loss = self.transformer.kl_loss
         with tf.variable_scope('transformer'):
             self.transformer.build_loss(train_loss)
 
@@ -183,6 +189,8 @@ class VAESEQ:
             train_loss = self.transformer.wasserstein_loss
         elif self.params['loss_type'] == 2:
             train_loss = self.merged_loss_seq
+        elif self.params['loss_type'] == 3:
+            train_loss = self.transformer.kl_loss
         log = self.transformer.train_session(sess, feed_dict, train_loss)
         return log
         
