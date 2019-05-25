@@ -24,6 +24,7 @@ def main():
         os.makedirs(exp_path)
     model_name = args.model_name
     train_data_len = 3384185
+    args.data_len = train_data_len
     train_data_path = args.train_data
     EPOCH_STEPS = (train_data_len-1)//args.batch_size+1
     args.enc_max_len = 150
@@ -36,6 +37,8 @@ def main():
         'vocab_size': len(dataloader.word2idx),
         'word2idx': dataloader.word2idx,
         'idx2word': dataloader.idx2word,
+        'idx2token': dataloader.idx2word,
+        'token2id': dataloader.word2idx,
         'loss_type': args.loss_type,
         'graph_type': args.graph_type}
     print('Vocab Size:', params['vocab_size'])
@@ -80,6 +83,8 @@ def main():
             if keep_on_train_flag and step <= last_train_step: continue
             if keep_on_train_flag and step == (last_train_step+1): keep_on_train_flag=False
 
+            if step % 2 != 0: continue
+
             # get batch data
             try:
                 x_enc_inp, x_dec_inp_full, x_dec_out, y_enc_inp, y_dec_inp_full, y_dec_out = next(batcher)
@@ -89,13 +94,14 @@ def main():
                 print("there are no more examples")
                 break
                 
-            for _ in range(2):
-                x_log = model.train_encoder(sess, x_enc_inp, x_dec_inp, x_dec_out, y_enc_inp, y_dec_inp, y_dec_out)
-                y_log = model.train_decoder(sess, x_enc_inp, x_dec_inp, x_dec_out, y_enc_inp, y_dec_inp, y_dec_out)
+            #for _ in range(2):
+            x_log = model.train_encoder(sess, x_enc_inp, x_dec_inp, x_dec_out, y_enc_inp, y_dec_inp, y_dec_out)
+            y_log = model.train_decoder(sess, x_enc_inp, x_dec_inp, x_dec_out, y_enc_inp, y_dec_inp, y_dec_out)
             # t_log = model.train_transformer(sess, x_enc_inp, x_dec_inp, x_dec_out, y_enc_inp, y_dec_inp, y_dec_out)
-            t_log = model.merged_transformer_train(sess, x_enc_inp, x_dec_inp, x_dec_out, y_enc_inp, y_dec_inp, y_dec_out)
+            #t_log = model.merged_transformer_train(sess, x_enc_inp, x_dec_inp, x_dec_out, y_enc_inp, y_dec_inp, y_dec_out)
             # log = model.merged_train(sess, x_enc_inp, x_dec_inp, x_dec_out, y_enc_inp, y_dec_inp, y_dec_out)
-            # log = model.merged_seq_train(sess, x_enc_inp, x_dec_inp, x_dec_out, y_enc_inp, y_dec_inp, y_dec_out)
+            if step % 2 == 0:
+                log = model.merged_seq_train(sess, x_enc_inp, x_dec_inp, x_dec_out, y_enc_inp, y_dec_inp, y_dec_out, None, 0)
             # model.show_parameters(sess)
 
             # get the summaries and iteration number so we can write summaries to tensorboard
@@ -110,11 +116,11 @@ def main():
                 args.training = False
                 save_path = saver.save(sess, exp_path+model_name, global_step=train_step)
                 print("Model saved in file: %s" % save_path)
-                print("============= Show Encoder ===============")
-                model.show_encoder(sess, x_enc_inp[-1], x_dec_inp[-1], LOGGER)
-                print("============= Show Decoder ===============")
-                model.show_decoder(sess, y_enc_inp[-1], y_dec_inp[-1], LOGGER)
-                print("============= Show Sample ===============")
+                # print("============= Show Encoder ===============")
+                # model.show_encoder(sess, x_enc_inp[-1], x_dec_inp[-1], LOGGER)
+                # print("============= Show Decoder ===============")
+                # model.show_decoder(sess, y_enc_inp[-1], y_dec_inp[-1], LOGGER)
+                # print("============= Show Sample ===============")
                 for i in range(3):
                     model.show_sample(sess, x_enc_inp[i], y_dec_out[i], LOGGER)
                 LOGGER.flush()

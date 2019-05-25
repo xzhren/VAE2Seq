@@ -23,6 +23,8 @@ def main():
     args.training = False
     args.enc_max_len = 150
     args.dec_max_len = 150
+    test_len = 20000
+    args.data_len = test_len
     print(args)
 
     ## DataLoader
@@ -62,7 +64,6 @@ def main():
         print("[PAEPEAR DATASET]")
 
         # Test DataSet
-        test_len = 20000
         batcher = dataloader.load_data(fpath=test_file)
         for _ in tqdm(range((test_len-1)//args.batch_size+1)):
             try:
@@ -90,17 +91,17 @@ def main():
     
     from measures import selfbleu
     selfbleuobj = selfbleu.SelfBleu(trans_file, 1)
-    print("  selfbleu-1", selfbleuobj.get_score())
-    eval_log['selfbleu-1'] = selfbleuobj.get_score()
+    print("  selfbleu-1", 1-selfbleuobj.get_score())
+    eval_log['selfbleu-1'] = 1-selfbleuobj.get_score()
     selfbleuobj = selfbleu.SelfBleu(trans_file, 2)
-    print("  selfbleu-2", selfbleuobj.get_score())
-    eval_log['selfbleu-2'] = selfbleuobj.get_score()
+    print("  selfbleu-2", 1-selfbleuobj.get_score())
+    eval_log['selfbleu-2'] = 1-selfbleuobj.get_score()
     selfbleuobj = selfbleu.SelfBleu(trans_file, 3)
-    print("  selfbleu-3", selfbleuobj.get_score())
-    eval_log['selfbleu-1'] = selfbleuobj.get_score()
+    print("  selfbleu-3", 1-selfbleuobj.get_score())
+    eval_log['selfbleu-1'] = 1-selfbleuobj.get_score()
     selfbleuobj = selfbleu.SelfBleu(trans_file, 4)
-    print("  selfbleu-4", selfbleuobj.get_score())
-    eval_log['selfbleu-2'] = selfbleuobj.get_score()
+    print("  selfbleu-4", 1-selfbleuobj.get_score())
+    eval_log['selfbleu-2'] = 1-selfbleuobj.get_score()
 
     # Record Log
     dataloader.record_result(eval_log, finpath=test_file, frespaht=trans_file, foutpath=result_file)
